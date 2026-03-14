@@ -1,7 +1,8 @@
 import axios from "axios";
 import { useSessionStore } from "../store/useSessionStore";
 
-const baseURL = process.env.EXPO_PUBLIC_API_BASE_URL ?? "http://localhost:4000/api";
+// Point to admin-dashboard2 API (Next.js). For device/simulator use your machine IP, e.g. http://192.168.1.x:3000/api
+const baseURL = process.env.EXPO_PUBLIC_API_BASE_URL ?? "http://localhost:3000/api";
 const REQUEST_TIMEOUT_MS = 15000;
 const MAX_RETRIES = 2;
 const RETRY_DELAY_MS = 500;
