@@ -41,6 +41,7 @@ if git diff --staged --quiet; then
   exit 0
 fi
 git commit -m "$COMMIT_MSG"
+git remote set-url origin "$DASHDAY_REPO"
 git push -u origin "$BRANCH"
 rm -rf "$WORK_DIR"
 echo "Pushed admin-dashboard2 to $DASHDAY_REPO ($BRANCH)."
