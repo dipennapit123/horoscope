@@ -56,6 +56,12 @@ Use the same Clerk publishable key as in the Vercel env. Rebuild/restart the mob
 
 ## Troubleshooting
 
+- **404 NOT_FOUND:**  
+  - If you see this on the **root URL** (`https://your-app.vercel.app/`), set **Root Directory** in Vercel: **Project → Settings → General → Root Directory**.  
+  - If you deployed the **dashreview** repo (app at repo root): leave Root Directory **empty** or `.`.  
+  - If you deployed the **monorepo** (ao-horoscope): set Root Directory to **`admin-dashboard2`**.  
+  - Then **Redeploy** (Deployments → ⋮ → Redeploy).  
+  - Check the **Build** log; the build must finish without errors.
 - **Database errors:** Ensure Supabase project is not paused and `DATABASE_URL` is the pooler URL (port 6543).
 - **503 / connection errors:** Check Supabase connection string and that the project is in the same region as the pooler host.
 - **Mobile auth fails:** Verify `CLERK_JWT_ISSUER` matches your Clerk Frontend API URL and that the mobile app uses the same Clerk application.
