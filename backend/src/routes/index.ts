@@ -16,11 +16,14 @@ router.get("/health", async (_req, res) => {
   } catch {
     // leave database as disconnected
   }
+  // Expose deploy commit so you can verify Vercel is running the latest push (Vercel sets VERCEL_GIT_COMMIT_SHA)
+  const commit = process.env.VERCEL_GIT_COMMIT_SHA || process.env.VERCEL_GIT_COMMIT_REF || null;
   res.json({
     success: true,
     data: {
       status: "ok",
       database,
+      deployCommit: commit || undefined,
       message:
         database === "connected"
           ? "Database connected; horoscopes and user data will be served."
