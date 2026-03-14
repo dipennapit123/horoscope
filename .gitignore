@@ -1,0 +1,12 @@
+# Deploy scripts use these temp clones; do not commit
+.deploy-backend
+.deploy-mobile
+.deploy-admin
+
+# Dependencies and env (do not commit secrets)
+node_modules
+.env
+.env.local
+.env.*.local
+*.log
+dist
