@@ -8,43 +8,19 @@
       "developmentClient": true,
       "distribution": "internal",
       "env": {
-        "EXPO_PUBLIC_API_BASE_URL": "https://astradailyadmin.org/api",
-        "EXPO_PUBLIC_FIREBASE_API_KEY": "AIzaSyBOp0SckHyDK2Z1bD7jFBkPoB_0zauyoNA",
-        "EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN": "astradaily-4ad13.firebaseapp.com",
-        "EXPO_PUBLIC_FIREBASE_PROJECT_ID": "astradaily-4ad13",
-        "EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET": "astradaily-4ad13.firebasestorage.app",
-        "EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID": "867510640043",
-        "EXPO_PUBLIC_FIREBASE_APP_ID": "1:867510640043:android:f559cdd35b56e1e71c46ee",
-        "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID": "867510640043-d3pfgbj792je1vq622pkeveh3lut1fga.apps.googleusercontent.com",
-        "EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID": "867510640043-ufse1eq343677qa1u548mluqblbnab50.apps.googleusercontent.com"
+        "EXPO_PUBLIC_API_BASE_URL": "https://astradailyadmin.org/api"
       }
     },
     "preview": {
       "distribution": "internal",
       "env": {
-        "EXPO_PUBLIC_API_BASE_URL": "https://astradailyadmin.org/api",
-        "EXPO_PUBLIC_FIREBASE_API_KEY": "AIzaSyBOp0SckHyDK2Z1bD7jFBkPoB_0zauyoNA",
-        "EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN": "astradaily-4ad13.firebaseapp.com",
-        "EXPO_PUBLIC_FIREBASE_PROJECT_ID": "astradaily-4ad13",
-        "EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET": "astradaily-4ad13.firebasestorage.app",
-        "EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID": "867510640043",
-        "EXPO_PUBLIC_FIREBASE_APP_ID": "1:867510640043:android:f559cdd35b56e1e71c46ee",
-        "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID": "867510640043-d3pfgbj792je1vq622pkeveh3lut1fga.apps.googleusercontent.com",
-        "EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID": "867510640043-ufse1eq343677qa1u548mluqblbnab50.apps.googleusercontent.com"
+        "EXPO_PUBLIC_API_BASE_URL": "https://astradailyadmin.org/api"
       }
     },
     "production": {
       "autoIncrement": true,
       "env": {
-        "EXPO_PUBLIC_API_BASE_URL": "https://astradailyadmin.org/api",
-        "EXPO_PUBLIC_FIREBASE_API_KEY": "AIzaSyBOp0SckHyDK2Z1bD7jFBkPoB_0zauyoNA",
-        "EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN": "astradaily-4ad13.firebaseapp.com",
-        "EXPO_PUBLIC_FIREBASE_PROJECT_ID": "astradaily-4ad13",
-        "EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET": "astradaily-4ad13.firebasestorage.app",
-        "EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID": "867510640043",
-        "EXPO_PUBLIC_FIREBASE_APP_ID": "1:867510640043:android:f559cdd35b56e1e71c46ee",
-        "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID": "867510640043-d3pfgbj792je1vq622pkeveh3lut1fga.apps.googleusercontent.com",
-        "EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID": "867510640043-ufse1eq343677qa1u548mluqblbnab50.apps.googleusercontent.com"
+        "EXPO_PUBLIC_API_BASE_URL": "https://astradailyadmin.org/api"
       }
     }
   },
