@@ -7,6 +7,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useToast } from "../context/ToastContext";
 import { recordActivity } from "../services/activity";
 import { firebaseAuth } from "../services/firebase";
+import { clearGoogleSignInSession } from "../services/google-signin-session";
 import { onAuthStateChanged, signOut } from "firebase/auth";
 
 type Props = NativeStackScreenProps<RootStackParamList, "Main">;
@@ -240,6 +241,8 @@ export const SettingsScreen: React.FC<Props> = ({ navigation }) => {
             } catch {
               // continue to clear app state
             }
+            // Native Google session must be cleared or the next sign-in reuses the same account.
+            await clearGoogleSignInSession();
             logout();
             toast.show("You have been logged out.");
             setTimeout(() => {

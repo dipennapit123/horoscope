@@ -15,6 +15,7 @@ import { AppNavigator } from "./src/AppNavigator";
 import { ToastProvider } from "./src/context/ToastContext";
 import { ErrorBoundary } from "./src/components/ErrorBoundary";
 import { colors } from "./src/theme";
+import { getMissingPublicEnvKeys } from "./src/config/publicEnv";
 import "./src/services/firebase";
 
 export default function App() {
@@ -24,19 +25,8 @@ export default function App() {
     Poppins_700Bold,
   });
 
-  const requiredFirebaseEnv = [
-    "EXPO_PUBLIC_FIREBASE_API_KEY",
-    "EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN",
-    "EXPO_PUBLIC_FIREBASE_PROJECT_ID",
-    "EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET",
-    "EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID",
-    "EXPO_PUBLIC_FIREBASE_APP_ID",
-    "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID",
-    "EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID",
-  ] as const;
-  const missingFirebaseEnv = requiredFirebaseEnv.filter(
-    (key) => !(process.env[key] ?? "").trim(),
-  );
+  // Values come from app.config.js → expo.extra (see publicEnv.ts); works in dev + EAS.
+  const missingFirebaseEnv = getMissingPublicEnvKeys();
 
   // Don't block app start on font loading (this makes splash screen feel slow).
   // Instead, apply the font once it's ready.

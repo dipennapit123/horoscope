@@ -1,6 +1,7 @@
 {
   "expo": {
     "name": "AstraDaily",
+    "owner": "dipennapit",
     "slug": "astradaily",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -39,7 +40,8 @@
       }
     },
     "plugins": [
-      "expo-web-browser"
+      "expo-web-browser",
+      "@react-native-google-signin/google-signin"
     ]
   }
 }

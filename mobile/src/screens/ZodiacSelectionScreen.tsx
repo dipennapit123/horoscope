@@ -5,6 +5,7 @@ import type { RootStackParamList } from "../AppNavigator";
 import type { Horoscope, ZodiacSign } from "../types";
 import { useSessionStore } from "../store/useSessionStore";
 import { api } from "../services/api";
+import { refreshAndStoreFirebaseIdToken } from "../services/auth-token";
 import { recordActivity } from "../services/activity";
 import { Ionicons } from "@expo/vector-icons";
 
@@ -210,6 +211,12 @@ export const ZodiacSelectionScreen: React.FC<Props> = ({ navigation, route }) =>
       if (userId) {
         setSaving(true);
         try {
+          const fresh = await refreshAndStoreFirebaseIdToken();
+          if (!fresh) {
+            setSaving(false);
+            Alert.alert("Session expired", "Please sign in again.");
+            return;
+          }
           await api.patch(
             "/users/zodiac",
             { zodiacSign: sign },

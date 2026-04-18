@@ -1,7 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
-import * as AuthSession from "expo-auth-session";
-import * as WebBrowser from "expo-web-browser";
-import * as Google from "expo-auth-session/providers/google";
+import React, { useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -15,16 +12,16 @@ import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { RootStackParamList } from "../AppNavigator";
 import { useSessionStore } from "../store/useSessionStore";
 import { Ionicons } from "@expo/vector-icons";
+import { GoogleSignin, statusCodes } from "@react-native-google-signin/google-signin";
 import { ZodiacLogoRing } from "../components/ZodiacLogoRing";
 import { bootstrapSessionProfile } from "../services/session";
 import { LegalDocumentModal } from "../components/LegalDocumentModal";
 import { loadTermsConsent, saveTermsConsent } from "../services/consent";
+import { publicEnv } from "../config/publicEnv";
 import { firebaseAuth } from "../services/firebase";
 import { GoogleAuthProvider, onAuthStateChanged, signInWithCredential } from "firebase/auth";
 
 type Props = NativeStackScreenProps<RootStackParamList, "Auth">;
-
-WebBrowser.maybeCompleteAuthSession();
 
 const PRIMARY = "#7f13ec";
 const BACKGROUND_DARK = "#191022";
@@ -113,31 +110,21 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [activeLegalDoc, setActiveLegalDoc] = useState<"terms" | "privacy" | null>(null);
   const [firebaseUser, setFirebaseUser] = useState(() => firebaseAuth.currentUser);
-  const redirectUrl = useMemo(
-    () =>
-      AuthSession.makeRedirectUri({
-        native: "astradaily://oauth-native-callback",
-      }),
-    []
-  );
-  const [googleRequest, googleResponse, promptGoogle] = Google.useAuthRequest({
-    responseType: AuthSession.ResponseType.IdToken,
-    webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
-    androidClientId: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID,
-    iosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID,
-    redirectUri: redirectUrl,
-    scopes: ["openid", "profile", "email"],
-  });
+  const webClientId = publicEnv.googleWebClientId();
 
   const showContinueButton = !!firebaseUser || !!(token && clerkUserId);
   const authDisabled = isLoading || !consentLoaded || !termsAccepted;
 
   useEffect(() => {
-    void WebBrowser.warmUpAsync();
-    return () => {
-      void WebBrowser.coolDownAsync();
-    };
-  }, []);
+    GoogleSignin.configure({
+      webClientId,
+      ...(publicEnv.googleIosClientId()
+        ? { iosClientId: publicEnv.googleIosClientId() }
+        : {}),
+      scopes: ["profile", "email"],
+      offlineAccess: false,
+    });
+  }, [webClientId]);
 
   useEffect(() => {
     const unsub = onAuthStateChanged(firebaseAuth, (user) => {
@@ -205,91 +192,72 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
     if (authDisabled) return;
     setIsLoading(true);
     try {
-      if (!googleRequest) {
-        setIsLoading(false);
-        Alert.alert("Configuration error", "Google auth request is not ready yet. Try again.");
+      if (!webClientId) {
+        Alert.alert("Configuration error", "Missing Google web client ID.");
         return;
       }
-      await promptGoogle({ showInRecents: true });
-    } catch (err: unknown) {
-      setIsLoading(false);
-      let message = "Unknown error";
-      if (err instanceof Error) {
-        message = err.message;
-      } else if (err && typeof err === "object") {
-        const o = err as Record<string, unknown>;
-        if (typeof o.message === "string") message = o.message;
-        else if (Array.isArray(o.errors) && o.errors[0] && typeof (o.errors[0] as Record<string, unknown>).message === "string")
-          message = (o.errors[0] as Record<string, string>).message;
-        else message = JSON.stringify(o);
-      }
-      if (__DEV__) {
-        console.warn("[Login] Google sign-in error:", message, "redirectUri=", redirectUrl, err);
-      }
-      const isCancelled =
-        typeof message === "string" &&
-        (message.toLowerCase().includes("cancel") ||
-          message.toLowerCase().includes("cancelled") ||
-          message.toLowerCase().includes("user_denied") ||
-          message.toLowerCase().includes("err_request_canceled"));
-      Alert.alert(
-        "Sign in failed",
-        isCancelled
-          ? "Sign in was cancelled."
-          : message && message.length < 120 && message !== "Unknown error"
-            ? message
-            : "Could not complete Google sign in. Check Firebase and Google OAuth client IDs."
-      );
-    }
-  };
 
-  useEffect(() => {
-    const completeGoogleSignIn = async () => {
-      if (!googleResponse) return;
-      if (googleResponse.type !== "success") {
-        if (googleResponse.type !== "dismiss" && googleResponse.type !== "cancel") {
-          Alert.alert("Sign in failed", "Google sign-in did not complete.");
-        }
-        setIsLoading(false);
+      const hasPlayServices = await GoogleSignin.hasPlayServices({
+        showPlayServicesUpdateDialog: true,
+      });
+      if (!hasPlayServices) {
+        Alert.alert("Google Play Services", "Google Play Services is not available on this device.");
         return;
       }
+
+      const signInResult = await GoogleSignin.signIn();
+      if (signInResult.type === "cancelled") {
+        return;
+      }
+
+      const idToken = signInResult.data.idToken ?? (await GoogleSignin.getTokens()).idToken;
+      if (!idToken) throw new Error("Missing Google ID token.");
+
+      const credential = GoogleAuthProvider.credential(idToken);
+      const userCred = await signInWithCredential(firebaseAuth, credential);
+      const fbUser = userCred.user;
+      const jwt = await fbUser.getIdToken();
+
+      setAuth({ clerkUserId: fbUser.uid, token: jwt });
 
       try {
-        const idToken = googleResponse.authentication?.idToken;
-        if (!idToken) throw new Error("Missing Google ID token.");
-
-        const credential = GoogleAuthProvider.credential(idToken);
-        const userCred = await signInWithCredential(firebaseAuth, credential);
-        const fbUser = userCred.user;
-        const jwt = await fbUser.getIdToken();
-
-        setAuth({ clerkUserId: fbUser.uid, token: jwt });
-
-        try {
-          const profile = await bootstrapSessionProfile({
-            clerkUserId: fbUser.uid,
-            token: jwt,
-            email: fbUser.email ?? "",
-            fullName: fbUser.displayName ?? "",
-            avatarUrl: fbUser.photoURL ?? undefined,
-          });
-          setZodiacSign(profile.zodiacSign);
-        } catch {
-          // ignore
-        }
-      } catch (err: unknown) {
-        const message = err instanceof Error ? err.message : "Unknown error";
-        Alert.alert(
-          "Sign in failed",
-          message && message.length < 120 ? message : "Firebase sign-in failed. Check Firebase and Google setup."
-        );
-      } finally {
-        setIsLoading(false);
+        const profile = await bootstrapSessionProfile({
+          clerkUserId: fbUser.uid,
+          token: jwt,
+          email: fbUser.email ?? "",
+          fullName: fbUser.displayName ?? "",
+          avatarUrl: fbUser.photoURL ?? undefined,
+        });
+        setZodiacSign(profile.zodiacSign);
+      } catch {
+        // ignore
       }
-    };
-
-    void completeGoogleSignIn();
-  }, [googleResponse, setAuth, setZodiacSign]);
+    } catch (err: unknown) {
+      let message = "Could not complete Google sign in. Check Firebase, SHA-1, and Google client IDs.";
+      if (err && typeof err === "object" && "code" in err) {
+        const code = String((err as { code?: unknown }).code ?? "");
+        if (code === statusCodes.SIGN_IN_CANCELLED) {
+          return;
+        }
+        if (code === statusCodes.IN_PROGRESS) {
+          message = "Google sign-in is already in progress.";
+        } else if (code === statusCodes.PLAY_SERVICES_NOT_AVAILABLE) {
+          message = "Google Play Services is not available or needs an update.";
+        }
+      }
+      if (err instanceof Error && err.message) {
+        if (err.message.includes("RNGoogleSignin") || err.message.includes("Expo Go")) {
+          message = "Native Google Sign-In requires an EAS/dev build. It will not work in Expo Go.";
+        } else if (err.message.length < 140) {
+          message = err.message;
+        }
+      }
+      Alert.alert("Sign in failed", message);
+    }
+    finally {
+      setIsLoading(false);
+    }
+  };
 
   return (
     <View style={styles.container}>

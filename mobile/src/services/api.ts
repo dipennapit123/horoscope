@@ -1,8 +1,10 @@
 import axios from "axios";
 import { useSessionStore } from "../store/useSessionStore";
+import { publicEnv } from "../config/publicEnv";
+import { firebaseAuth } from "./firebase";
 
 // Point to admin-dashboard2 API (Next.js). For device/simulator use your machine IP, e.g. http://192.168.1.x:3000/api
-const baseURL = process.env.EXPO_PUBLIC_API_BASE_URL ?? "http://localhost:3000/api";
+const baseURL = publicEnv.apiBaseUrl();
 const REQUEST_TIMEOUT_MS = 15000;
 const MAX_RETRIES = 2;
 const RETRY_DELAY_MS = 500;
@@ -24,12 +26,34 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
-// Retry on timeout / network / 5xx errors
+// Retry on timeout / network / 5xx errors; refresh Firebase token once on 401
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
-    const config = error.config as typeof error.config & { _retryCount?: number };
+    const config = error.config as typeof error.config & {
+      _retryCount?: number;
+      _didRefresh401?: boolean;
+    };
     if (!config) return Promise.reject(error);
+
+    if (
+      error.response?.status === 401 &&
+      !config._didRefresh401 &&
+      firebaseAuth.currentUser
+    ) {
+      config._didRefresh401 = true;
+      try {
+        const user = firebaseAuth.currentUser;
+        const token = await user.getIdToken(true);
+        useSessionStore.getState().setAuth({ clerkUserId: user.uid, token });
+        const h = config.headers ?? {};
+        Object.assign(h as object, { Authorization: `Bearer ${token}` });
+        config.headers = h;
+        return api.request(config);
+      } catch {
+        // fall through to reject
+      }
+    }
 
     const count = config._retryCount ?? 0;
     const shouldRetry =
