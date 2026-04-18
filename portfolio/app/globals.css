@@ -1,0 +1,174 @@
+@import "tailwindcss";
+
+/* Stitch design tokens (Tailwind v4 @theme) — page canvas: black (hero-aligned) */
+:root {
+  --background: #000000;
+  --on-background: #ecdcff;
+}
+
+@theme inline {
+  --color-surface-bright: #252525;
+  --color-on-secondary-container: #cea2ff;
+  --color-inverse-primary: #8239b9;
+  --color-on-surface: #ecdcff;
+  --color-surface-tint: #e1b6ff;
+  --color-on-background: #ecdcff;
+  --color-on-primary-container: #b96ff0;
+  --color-on-primary: #4c007b;
+  --color-primary: #e1b6ff;
+  --color-primary-container: #42006c;
+  --color-outline-variant: #4b4450;
+  --color-on-primary-fixed: #2e004d;
+  --color-on-surface-variant: #cdc3d2;
+  --color-surface-container-lowest: #0a0a0a;
+  --color-on-tertiary: #482900;
+  --color-tertiary: #ffb868;
+  --color-outline: #968e9c;
+  --color-background: #000000;
+  --color-on-tertiary-fixed-variant: #673d00;
+  --color-on-secondary: #441573;
+  --color-on-secondary-fixed: #2b0053;
+  --color-error: #ffb4ab;
+  --color-surface: #000000;
+  --color-tertiary-container: #3e2300;
+  --color-tertiary-fixed-dim: #ffb868;
+  --color-on-secondary-fixed-variant: #5b308c;
+  --color-on-primary-fixed-variant: #691a9f;
+  --color-inverse-surface: #ecdcff;
+  --color-on-error: #690005;
+  --color-surface-dim: #000000;
+  --color-primary-fixed-dim: #e1b6ff;
+  --color-on-tertiary-fixed: #2b1700;
+  --color-on-tertiary-container: #cd7e00;
+  --color-surface-container-highest: #1a1a1a;
+  --color-primary-fixed: #f2daff;
+  --color-surface-variant: #1a1a1a;
+  --color-inverse-on-surface: #382854;
+  --color-tertiary-fixed: #ffddbb;
+  --color-secondary-fixed: #efdbff;
+  --color-on-error-container: #ffdad6;
+  --color-secondary: #dbb8ff;
+  --color-surface-container-high: #141414;
+  --color-secondary-container: #5b308c;
+  --color-surface-container: #111111;
+  --color-error-container: #93000a;
+  --color-secondary-fixed-dim: #dbb8ff;
+  --color-surface-container-low: #0d0d0d;
+
+  --radius: 0.25rem;
+  --radius-lg: 0.5rem;
+  --radius-xl: 0.75rem;
+  --radius-2xl: 1.5rem;
+  --radius-full: 9999px;
+
+  --font-headline: var(--font-poppins);
+  --font-body: var(--font-poppins);
+  --font-label: var(--font-poppins);
+}
+
+body {
+  background-color: theme(colors.background);
+  color: theme(colors.on-surface);
+  font-family: theme(fontFamily.body);
+}
+
+@keyframes hero-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
+}
+
+.material-symbols-outlined {
+  font-variation-settings: "FILL" 0, "wght" 400, "GRAD" 0, "opsz" 24;
+}
+
+@layer utilities {
+  .hero-float {
+    animation: hero-float 5s ease-in-out infinite;
+  }
+  .hero-float-delay-1 {
+    animation: hero-float 5.5s ease-in-out infinite;
+    animation-delay: 0.4s;
+  }
+  .hero-float-delay-2 {
+    animation: hero-float 6s ease-in-out infinite;
+    animation-delay: 0.8s;
+  }
+
+  .nebula-glow {
+    background: radial-gradient(
+      circle at 50% 50%,
+      rgba(225, 182, 255, 0.07) 0%,
+      rgba(0, 0, 0, 0) 72%
+    );
+  }
+
+  .cosmic-dots {
+    background-image: radial-gradient(#ecdcff 1px, transparent 1px);
+    background-size: 40px 40px;
+    opacity: 0.04;
+  }
+
+  .glass-card {
+    backdrop-filter: blur(20px);
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
+  .pulsar-btn {
+    background: linear-gradient(135deg, #e1b6ff 0%, #42006c 100%);
+    transition: all 0.3s ease;
+  }
+
+  .pulsar-btn:hover {
+    box-shadow: 0 0 20px rgba(225, 182, 255, 0.4);
+  }
+
+  .glass-panel {
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
+  .cosmic-gradient-btn {
+    background: linear-gradient(135deg, #e1b6ff 0%, #42006c 100%);
+  }
+
+  .cosmic-particles {
+    background-image: radial-gradient(#ecdcff 1px, transparent 1px);
+    background-size: 40px 40px;
+    opacity: 0.05;
+  }
+
+  /* Screenshots gallery — phone chrome on black */
+  .phone-frame {
+    position: relative;
+    overflow: hidden;
+    border-radius: 3rem;
+    box-shadow:
+      0 0 0 12px #1a1a1a,
+      0 0 0 14px #2a2a2a;
+  }
+
+  .hide-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .hide-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  .cosmic-particle {
+    position: absolute;
+    border-radius: 50%;
+    background: #ecdcff;
+    opacity: 0.1;
+    pointer-events: none;
+  }
+}

@@ -1,46 +1,35 @@
-## AstraDaily Monorepo
+## AstraDaily
 
-This monorepo contains three apps:
+This repo contains three projects:
 
-- `backend` – Express + Prisma API for users, horoscopes, and admin tools
-- `admin-dashboard` – React + Vite admin panel to manage horoscope content
-- `mobile` – Expo React Native app for end users
+- **`admin-dashboard2`** — Next.js app: admin UI, user API, and backend logic (deployed to Vercel).
+- **`mobile`** — Expo React Native app for end users (EAS / app stores).
+- **`portfolio`** — Marketing / portfolio site.
 
-### 1. Backend
-
-1. Create `.env` from the example and point `DATABASE_URL` to a PostgreSQL database.
-2. From `backend`:
+### Admin + API (`admin-dashboard2`)
 
 ```bash
-npm install
-npx prisma migrate dev --name init
-npm run prisma:seed
-npm run dev
-```
-
-API base URL: `http://localhost:4000/api`.
-
-### 2. Admin dashboard
-
-1. Create `.env` from `.env.example` and set `VITE_API_BASE_URL` if needed.
-2. From `admin-dashboard`:
-
-```bash
+cd admin-dashboard2
 npm install
 npm run dev
 ```
 
-Log in with the seeded admin user: `admin@example.com` / `admin123`.
+Configure environment variables per `admin-dashboard2` docs (`.env.local`, Vercel env).
 
-### 3. Mobile app
-
-1. Create `.env` from `.env.example` and set `EXPO_PUBLIC_API_BASE_URL`.
-2. From `mobile`:
+### Mobile (`mobile`)
 
 ```bash
+cd mobile
 npm install
-npm start
+npx expo start
 ```
 
-The mobile app currently uses a mock Clerk login; replace the placeholder in `LoginScreen.tsx` with real Clerk + Google Sign-In when you are ready.
+Set `EXPO_PUBLIC_*` variables (see Expo / EAS docs). Point `EXPO_PUBLIC_API_BASE_URL` at your deployed admin API.
 
+### Portfolio (`portfolio`)
+
+```bash
+cd portfolio
+npm install
+npm run dev
+```
