@@ -1,5 +1,6 @@
 import React, { useEffect } from "react";
 import { StatusBar } from "expo-status-bar";
+import * as SplashScreen from "expo-splash-screen";
 import {
   SafeAreaProvider,
   SafeAreaView,
@@ -14,9 +15,12 @@ import {
 import { AppNavigator } from "./src/AppNavigator";
 import { ToastProvider } from "./src/context/ToastContext";
 import { ErrorBoundary } from "./src/components/ErrorBoundary";
+import { SessionBootstrap } from "./src/components/SessionBootstrap";
 import { colors } from "./src/theme";
 import { getMissingPublicEnvKeys } from "./src/config/publicEnv";
 import "./src/services/firebase";
+
+void SplashScreen.preventAutoHideAsync();
 
 export default function App() {
   const [fontsLoaded] = useFonts({
@@ -25,11 +29,8 @@ export default function App() {
     Poppins_700Bold,
   });
 
-  // Values come from app.config.js → expo.extra (see publicEnv.ts); works in dev + EAS.
   const missingFirebaseEnv = getMissingPublicEnvKeys();
 
-  // Don't block app start on font loading (this makes splash screen feel slow).
-  // Instead, apply the font once it's ready.
   useEffect(() => {
     if (!fontsLoaded) return;
     Text.defaultProps = Text.defaultProps || {};
@@ -39,7 +40,7 @@ export default function App() {
     ];
   }, [fontsLoaded]);
 
-  if (missingFirebaseEnv.length > 0) {
+  if (missingFirebaseEnv.length > 0 && !__DEV__) {
     return (
       <SafeAreaProvider>
         <SafeAreaView
@@ -57,9 +58,16 @@ export default function App() {
           <Text style={{ color: "#94a3b8", marginTop: 10, lineHeight: 20 }}>
             Missing Firebase env values: {missingFirebaseEnv.join(", ")}
           </Text>
+          <Text style={{ color: "#64748b", marginTop: 10, lineHeight: 20 }}>
+            Dev mode allows the app to start, but sign-in may fail until these are set.
+          </Text>
         </SafeAreaView>
       </SafeAreaProvider>
     );
+  }
+
+  if (!fontsLoaded) {
+    return null;
   }
 
   return (
@@ -70,7 +78,9 @@ export default function App() {
             style={{ flex: 1, backgroundColor: colors.background }}
           >
             <StatusBar style="light" />
-            <AppNavigator />
+            <SessionBootstrap fontsLoaded={fontsLoaded}>
+              <AppNavigator />
+            </SessionBootstrap>
           </SafeAreaView>
         </SafeAreaProvider>
       </ToastProvider>

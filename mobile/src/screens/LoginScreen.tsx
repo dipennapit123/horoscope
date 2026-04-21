@@ -12,14 +12,21 @@ import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { RootStackParamList } from "../AppNavigator";
 import { useSessionStore } from "../store/useSessionStore";
 import { Ionicons } from "@expo/vector-icons";
-import { GoogleSignin, statusCodes } from "@react-native-google-signin/google-signin";
+import { getNativeGoogleSigninModule } from "../lib/runtimeEnv";
 import { ZodiacLogoRing } from "../components/ZodiacLogoRing";
 import { bootstrapSessionProfile } from "../services/session";
 import { LegalDocumentModal } from "../components/LegalDocumentModal";
 import { loadTermsConsent, saveTermsConsent } from "../services/consent";
 import { publicEnv } from "../config/publicEnv";
 import { firebaseAuth } from "../services/firebase";
-import { GoogleAuthProvider, onAuthStateChanged, signInWithCredential } from "firebase/auth";
+import {
+  GoogleAuthProvider,
+  onAuthStateChanged,
+  signInAnonymously,
+  signInWithCredential,
+} from "firebase/auth";
+import { resetStackAfterAuth } from "../navigation/authRouting";
+import type { ZodiacSign } from "../types";
 
 type Props = NativeStackScreenProps<RootStackParamList, "Auth">;
 
@@ -104,7 +111,7 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
   const setTermsAccepted = useSessionStore((s) => s.setTermsAccepted);
   const setConsentLoaded = useSessionStore((s) => s.setConsentLoaded);
   const token = useSessionStore((s) => s.token);
-  const clerkUserId = useSessionStore((s) => s.clerkUserId);
+  const firebaseUid = useSessionStore((s) => s.firebaseUid);
   const zodiacSign = useSessionStore((s) => s.zodiacSign);
 
   const [isLoading, setIsLoading] = useState(false);
@@ -112,16 +119,19 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
   const [firebaseUser, setFirebaseUser] = useState(() => firebaseAuth.currentUser);
   const webClientId = publicEnv.googleWebClientId();
 
-  const showContinueButton = !!firebaseUser || !!(token && clerkUserId);
+  const showContinueButton = !!firebaseUser || !!(token && firebaseUid);
   const authDisabled = isLoading || !consentLoaded || !termsAccepted;
 
   useEffect(() => {
-    GoogleSignin.configure({
+    const mod = getNativeGoogleSigninModule();
+    if (!mod) return;
+    if (!webClientId) return;
+    mod.GoogleSignin.configure({
       webClientId,
       ...(publicEnv.googleIosClientId()
         ? { iosClientId: publicEnv.googleIosClientId() }
         : {}),
-      scopes: ["profile", "email"],
+      scopes: ["openid", "profile", "email"],
       offlineAccess: false,
     });
   }, [webClientId]);
@@ -154,9 +164,8 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
 
   const handleContinue = async () => {
     if (authDisabled) return;
-    if (token && clerkUserId) {
-      const route = zodiacSign ? { name: "Main" as const } : { name: "Onboarding" as const };
-      navigation.reset({ index: 0, routes: [route] });
+    if (token && firebaseUid) {
+      resetStackAfterAuth(navigation, zodiacSign);
       return;
     }
 
@@ -164,11 +173,11 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
     try {
       const jwt = await firebaseUser.getIdToken();
       if (!jwt) return;
-      let resolvedZodiacSign = zodiacSign;
-      setAuth({ clerkUserId: firebaseUser.uid, token: jwt });
+      let resolvedZodiacSign: ZodiacSign | null = zodiacSign;
+      setAuth({ firebaseUid: firebaseUser.uid, token: jwt });
       try {
         const profile = await bootstrapSessionProfile({
-          clerkUserId: firebaseUser.uid,
+          firebaseUid: firebaseUser.uid,
           token: jwt,
           email: firebaseUser.email ?? "",
           fullName: firebaseUser.displayName ?? "",
@@ -179,10 +188,7 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
       } catch {
         // ignore
       }
-      const route = resolvedZodiacSign
-        ? { name: "Main" as const }
-        : { name: "Onboarding" as const };
-      navigation.reset({ index: 0, routes: [route] });
+      resetStackAfterAuth(navigation, resolvedZodiacSign);
     } catch {
       Alert.alert("Error", "Could not continue. Please try again.");
     }
@@ -192,6 +198,16 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
     if (authDisabled) return;
     setIsLoading(true);
     try {
+      const mod = getNativeGoogleSigninModule();
+      if (!mod) {
+        Alert.alert(
+          "Google sign-in unavailable",
+          "Native Google Sign-In does not run in Expo Go. Use a development build: npx expo run:android or npx expo run:ios (or an EAS build), then scan the QR with that app.",
+        );
+        return;
+      }
+      const { GoogleSignin, statusCodes } = mod;
+
       if (!webClientId) {
         Alert.alert("Configuration error", "Missing Google web client ID.");
         return;
@@ -218,43 +234,85 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
       const fbUser = userCred.user;
       const jwt = await fbUser.getIdToken();
 
-      setAuth({ clerkUserId: fbUser.uid, token: jwt });
+      setAuth({ firebaseUid: fbUser.uid, token: jwt });
 
+      let resolvedZodiac: ZodiacSign | null = null;
       try {
         const profile = await bootstrapSessionProfile({
-          clerkUserId: fbUser.uid,
+          firebaseUid: fbUser.uid,
           token: jwt,
           email: fbUser.email ?? "",
           fullName: fbUser.displayName ?? "",
           avatarUrl: fbUser.photoURL ?? undefined,
         });
+        resolvedZodiac = profile.zodiacSign;
         setZodiacSign(profile.zodiacSign);
       } catch {
-        // ignore
+        resolvedZodiac = useSessionStore.getState().zodiacSign;
       }
+      resetStackAfterAuth(navigation, resolvedZodiac);
     } catch (err: unknown) {
+      const developerErrorMsg =
+        "Google Sign-In failed with DEVELOPER_ERROR (Android OAuth mismatch).\n\n" +
+        "1) In Firebase → Project settings → Your Android app → Download google-services.json and replace BOTH:\n" +
+        "   mobile/google-services.json and mobile/android/app/google-services.json\n" +
+        "   (do not hand-edit; the file must match Firebase exactly).\n\n" +
+        "2) In the same Firebase screen, add every SHA-1 you use (debug vs release vs Play). For local emulator debug SHA, run:\n" +
+        "   bash mobile/scripts/print-debug-sha1.sh\n" +
+        "   or: cd mobile/android && ./gradlew signingReport\n\n" +
+        "3) EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID must be the OAuth “Web client” from Google Cloud (ends in .apps.googleusercontent.com).\n\n" +
+        "4) Wait a few minutes after Firebase changes, then rebuild: npx expo run:android";
+
       let message = "Could not complete Google sign in. Check Firebase, SHA-1, and Google client IDs.";
-      if (err && typeof err === "object" && "code" in err) {
+      const statusCodes = getNativeGoogleSigninModule()?.statusCodes;
+      const rawCode =
+        err && typeof err === "object" && "code" in err
+          ? String((err as { code?: unknown }).code ?? "")
+          : "";
+      const errMsg = err instanceof Error ? err.message : "";
+      if (err && typeof err === "object" && "code" in err && statusCodes) {
         const code = String((err as { code?: unknown }).code ?? "");
-        if (code === statusCodes.SIGN_IN_CANCELLED) {
+        if (code === String(statusCodes.SIGN_IN_CANCELLED)) {
           return;
         }
-        if (code === statusCodes.IN_PROGRESS) {
+        if (code === String(statusCodes.IN_PROGRESS)) {
           message = "Google sign-in is already in progress.";
-        } else if (code === statusCodes.PLAY_SERVICES_NOT_AVAILABLE) {
+        } else if (code === String(statusCodes.PLAY_SERVICES_NOT_AVAILABLE)) {
           message = "Google Play Services is not available or needs an update.";
         }
+      }
+      if (
+        errMsg.includes("DEVELOPER_ERROR") ||
+        rawCode === "10"
+      ) {
+        message = developerErrorMsg;
       }
       if (err instanceof Error && err.message) {
         if (err.message.includes("RNGoogleSignin") || err.message.includes("Expo Go")) {
           message = "Native Google Sign-In requires an EAS/dev build. It will not work in Expo Go.";
-        } else if (err.message.length < 140) {
+        } else if (!errMsg.includes("DEVELOPER_ERROR") && rawCode !== "10" && err.message.length < 140) {
           message = err.message;
         }
       }
       Alert.alert("Sign in failed", message);
     }
     finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleDevLogin = async () => {
+    if (authDisabled) return;
+    setIsLoading(true);
+    try {
+      const userCred = await signInAnonymously(firebaseAuth);
+      const fbUser = userCred.user;
+      const jwt = await fbUser.getIdToken();
+      setAuth({ firebaseUid: fbUser.uid, token: jwt });
+      resetStackAfterAuth(navigation, useSessionStore.getState().zodiacSign);
+    } catch {
+      Alert.alert("Dev sign-in failed", "Could not sign in anonymously. Check your Firebase configuration.");
+    } finally {
       setIsLoading(false);
     }
   };
@@ -344,6 +402,26 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
                 </>
               )}
             </TouchableOpacity>
+
+            {__DEV__ && (
+              <TouchableOpacity
+                style={[styles.authButtonBase, styles.devButton]}
+                activeOpacity={0.85}
+                disabled={authDisabled}
+                onPress={handleDevLogin}
+              >
+                {isLoading ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <>
+                    <View style={styles.googleIconWrap}>
+                      <Ionicons name="hammer" size={18} color="#FFFFFF" />
+                    </View>
+                    <Text style={styles.googleButtonText}>Continue (Dev mode)</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            )}
 
             {showContinueButton && (
               <TouchableOpacity
@@ -521,6 +599,12 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255, 255, 255, 0.1)",
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.15)",
+    marginBottom: 12,
+  },
+  devButton: {
+    backgroundColor: "rgba(127, 19, 236, 0.22)",
+    borderWidth: 1,
+    borderColor: "rgba(127, 19, 236, 0.35)",
     marginBottom: 12,
   },
   googleIconWrap: {
