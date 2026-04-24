@@ -14,7 +14,7 @@ const bodySchema = z.object({
 
 export async function POST(request: NextRequest) {
   try {
-    const clerkUserId = await getUserIdFromRequest();
+    const firebaseUid = await getUserIdFromRequest();
     const body = await request.json();
     const parsed = bodySchema.safeParse(body);
     if (!parsed.success) {
@@ -23,7 +23,7 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
-    const activity = await recordActivity(clerkUserId, parsed.data.action, {
+    const activity = await recordActivity(firebaseUid, parsed.data.action, {
       sessionId: parsed.data.sessionId,
       timezone: parsed.data.timezone,
       platform: parsed.data.platform,

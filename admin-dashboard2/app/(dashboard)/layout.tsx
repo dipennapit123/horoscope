@@ -6,13 +6,46 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useAuthStore } from "@/store/authStore";
 
-const navItems = [
-  { key: "dashboard", href: "/", label: "Dashboard", icon: "dashboard" },
-  { key: "horoscopes", href: "/horoscopes", label: "Horoscopes", icon: "nights_stay" },
-  { key: "generate", href: "/generate", label: "Generate", icon: "auto_fix_high" },
-  { key: "users", href: "/users", label: "Users", icon: "group" },
-  { key: "settings", href: "/settings", label: "Settings", icon: "settings", separated: true },
-];
+type NavItem =
+  | { type: "item"; key: string; href: string; label: string; icon: string; separated?: boolean }
+  | { type: "section"; key: string; label: string; icon: string; children: Array<{ key: string; href: string; label: string; icon: string }> };
+
+const navItems: NavItem[] = [
+  { type: "item", key: "dashboard", href: "/", label: "Dashboard", icon: "dashboard" },
+  { type: "item", key: "horoscopes", href: "/horoscopes", label: "Horoscopes", icon: "nights_stay" },
+  { type: "item", key: "generate", href: "/generate", label: "Generate", icon: "auto_fix_high" },
+  {
+    type: "section",
+    key: "users",
+    label: "USERS",
+    icon: "group",
+    children: [
+      { key: "users-all", href: "/users", label: "All users", icon: "person" },
+      { key: "users-daily-active", href: "/users/daily-active", label: "Daily active", icon: "monitoring" },
+    ],
+  },
+  {
+    type: "section",
+    key: "push-notifications",
+    label: "PUSH NOTIFICATIONS",
+    icon: "notifications",
+    children: [
+      {
+        key: "notifications-pillar",
+        href: "/notifications/pillar",
+        label: "Pillar notifications",
+        icon: "flare",
+      },
+      {
+        key: "notifications-motivational",
+        href: "/notifications/motivational",
+        label: "Motivational notifications",
+        icon: "format_quote",
+      },
+    ],
+  },
+  { type: "item", key: "settings", href: "/settings", label: "Settings", icon: "settings", separated: true },
+] as const;
 
 export default function DashboardLayout({
   children,
@@ -21,14 +54,20 @@ export default function DashboardLayout({
 }) {
   const token = useAuthStore((s) => s.token);
   const logout = useAuthStore((s) => s.logout);
+  const hasHydrated = useAuthStore((s) => s.hasHydrated);
   const pathname = usePathname();
   const router = useRouter();
 
   useEffect(() => {
+    if (!hasHydrated) return;
     if (!token) {
       router.replace("/login");
     }
-  }, [token, router]);
+  }, [hasHydrated, token, router]);
+
+  if (!hasHydrated) {
+    return null;
+  }
 
   if (!token) {
     return null;
@@ -37,13 +76,17 @@ export default function DashboardLayout({
   let activeKey = "dashboard";
   if (pathname?.startsWith("/horoscopes")) activeKey = "horoscopes";
   else if (pathname?.startsWith("/generate")) activeKey = "generate";
-  else if (pathname?.startsWith("/users")) activeKey = "users";
+  else if (pathname?.startsWith("/users/daily-active")) activeKey = "users-daily-active";
+  else if (pathname?.startsWith("/users")) activeKey = "users-all";
+  else if (pathname?.startsWith("/notifications/pillar")) activeKey = "notifications-pillar";
+  else if (pathname?.startsWith("/notifications/motivational")) activeKey = "notifications-motivational";
+  else if (pathname?.startsWith("/notifications")) activeKey = "notifications-pillar";
   else if (pathname?.startsWith("/settings")) activeKey = "settings";
 
   return (
     <div className="flex min-h-screen bg-gradient-to-br from-[#050316] via-[#05021A] to-[#0B061F] text-foreground">
       <aside className="flex h-screen w-64 flex-col border-r border-purple-900/30 bg-[#0d0618]">
-        <div className="flex items-center gap-3 px-6 py-6">
+        <Link href="/" className="flex items-center gap-3 px-6 py-6 hover:opacity-95">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#7f13ec] text-white">
             <span className="material-symbols-outlined text-xl">auto_awesome</span>
           </div>
@@ -53,28 +96,58 @@ export default function DashboardLayout({
             </h1>
             <p className="mt-1 text-xs text-purple-400/70">Admin Portal</p>
           </div>
-        </div>
+        </Link>
         <nav className="mt-2 flex-1 space-y-1 px-4">
-          {navItems.map((item) => (
-            <div key={item.key}>
-              {item.separated && (
-                <div className="mb-2 mt-4 border-t border-purple-900/30" />
-              )}
-              <Link
-                href={item.href}
-                className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors ${
-                  activeKey === item.key
-                    ? "border border-[#7f13ec]/30 bg-[#7f13ec]/15 text-[#7f13ec]"
-                    : "border border-transparent text-slate-400 hover:bg-purple-900/25 hover:text-purple-200"
-                }`}
-              >
-                <span className="material-symbols-outlined text-[20px]">
-                  {item.icon}
-                </span>
-                <span className="font-medium">{item.label}</span>
-              </Link>
-            </div>
-          ))}
+          {navItems.map((item) => {
+            if (item.type === "item") {
+              return (
+                <div key={item.key}>
+                  {item.separated && (
+                    <div className="mb-2 mt-4 border-t border-purple-900/30" />
+                  )}
+                  <Link
+                    href={item.href}
+                    className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors ${
+                      activeKey === item.key
+                        ? "border border-[#7f13ec]/30 bg-[#7f13ec]/15 text-[#7f13ec]"
+                        : "border border-transparent text-slate-400 hover:bg-purple-900/25 hover:text-purple-200"
+                    }`}
+                  >
+                    <span className="material-symbols-outlined text-[20px]">
+                      {item.icon}
+                    </span>
+                    <span className="font-medium">{item.label}</span>
+                  </Link>
+                </div>
+              );
+            }
+
+            return (
+              <div key={item.key} className="pt-3">
+                <div className="px-3 pb-2 text-xs font-semibold tracking-widest text-slate-500">
+                  {item.label}
+                </div>
+                <div className="space-y-1">
+                  {item.children.map((c) => (
+                    <Link
+                      key={c.key}
+                      href={c.href}
+                      className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors ${
+                        activeKey === c.key
+                          ? "border border-[#7f13ec]/30 bg-[#7f13ec]/15 text-[#7f13ec]"
+                          : "border border-transparent text-slate-400 hover:bg-purple-900/25 hover:text-purple-200"
+                      }`}
+                    >
+                      <span className="material-symbols-outlined text-[20px]">
+                        {c.icon}
+                      </span>
+                      <span className="font-medium">{c.label}</span>
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
         </nav>
         <div className="border-t border-purple-900/30 px-4 py-4">
           <div className="flex items-center gap-3 rounded-xl bg-purple-900/20 p-2.5">

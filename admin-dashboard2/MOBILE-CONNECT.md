@@ -11,11 +11,11 @@ Use the **same** Clerk application for the mobile app and for JWT verification h
 - In [Clerk Dashboard](https://dashboard.clerk.com) → your application → **Configure** → **API Keys**:
   - Copy **Publishable key** → `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` (and `EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY` in the mobile app).
   - Copy **Secret key** → `CLERK_SECRET_KEY` (only in admin-dashboard2, not in mobile).
-- **JWT Issuer** (required for mobile auth): in Clerk Dashboard → **Configure** → **JWT Templates** (or **API Keys**), use the **Frontend API** URL as issuer, e.g. `https://<your-instance>.clerk.accounts.dev` (no trailing slash). Set it as `CLERK_JWT_ISSUER` in admin-dashboard2 `.env` and `.env.local`.
+- **JWT Issuer** (required for mobile auth): in Clerk Dashboard → **Configure** → **JWT Templates** (or **API Keys**), use the **Frontend API** URL as issuer, e.g. `https://<your-instance>.clerk.accounts.dev` (no trailing slash). Set it as `CLERK_JWT_ISSUER` in admin-dashboard2 `.env` only.
 
 ## 2. admin-dashboard2 env
 
-In `admin-dashboard2/.env` and `.env.local`:
+In `admin-dashboard2/.env`:
 
 ```env
 NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY="pk_test_..."
@@ -30,12 +30,14 @@ In `mobile/.env`:
 - `EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY` — same as in Clerk Dashboard (you likely have this already).
 - `EXPO_PUBLIC_API_BASE_URL` — base URL of this app’s API:
   - **Production (hosted):** `https://astradailyadmin.org/api`
-  - Same machine: `http://localhost:3000/api`
-  - Device/simulator on LAN: `http://<your-machine-IP>:3000/api` (e.g. `http://192.168.1.69:3000/api`)
+  - **iOS Simulator / web on same Mac:** `http://localhost:3000/api`
+  - **Android emulator** (reaches the host machine): `http://10.0.2.2:3000/api`  
+    Or keep `localhost` and run `adb reverse tcp:3000 tcp:3000`, then use `http://localhost:3000/api`.
+  - **Physical device on Wi‑Fi:** `http://<your-machine-LAN-IP>:3000/api` — run the API with `npm run dev:lan` so it listens on all interfaces.
 
 ## 4. Run
 
-1. Start admin-dashboard2: `cd admin-dashboard2 && npm run dev` (runs on port 3000).
+1. Start admin-dashboard2: `cd admin-dashboard2 && npm run dev` (runs on port 3000). For a phone on the LAN, use `npm run dev:lan` instead.
 2. Start the mobile app: `cd mobile && npm start`.
 3. On a physical device, ensure the device and the machine running Next.js are on the same network and use the machine’s IP in `EXPO_PUBLIC_API_BASE_URL`.
 
@@ -43,12 +45,12 @@ In `mobile/.env`:
 
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
-| POST | `/api/users/sync-clerk-user` | — | Sync Clerk user (body: clerkUserId, email, fullName?, avatarUrl?, timezone?) |
-| GET | `/api/users/me` | Clerk JWT or x-clerk-user-id | Current user |
-| PATCH | `/api/users/zodiac` | Clerk JWT or x-clerk-user-id | Set zodiac sign (body: zodiacSign) |
-| POST | `/api/users/activity` | Clerk JWT or x-clerk-user-id | Record activity (body: action, sessionId?, timezone?, platform?, appVersion?) |
-| GET | `/api/horoscopes/today` | Clerk JWT or x-clerk-user-id | Today’s horoscope for user’s sign |
-| GET | `/api/horoscopes/history` | Clerk JWT or x-clerk-user-id | Horoscope history for user’s sign |
+| POST | `/api/users/sync-clerk-user` | — | Sync Firebase user (body: firebaseUid, email, fullName?, avatarUrl?, timezone?) |
+| GET | `/api/users/me` | Firebase ID token or x-firebase-uid | Current user |
+| PATCH | `/api/users/zodiac` | Firebase ID token or x-firebase-uid | Set zodiac sign (body: zodiacSign) |
+| POST | `/api/users/activity` | Firebase ID token or x-firebase-uid | Record activity (body: action, sessionId?, timezone?, platform?, appVersion?) |
+| GET | `/api/horoscopes/today` | Firebase ID token or x-firebase-uid | Today’s horoscope for user’s sign |
+| GET | `/api/horoscopes/history` | Firebase ID token or x-firebase-uid | Horoscope history for user’s sign |
 
 Admin routes (`/api/admin/*`) continue to use the existing admin JWT (or `ALLOW_ANONYMOUS_ADMIN` in dev).
 

@@ -27,7 +27,7 @@ export const ZODIAC_SIGNS: ZodiacSign[] = [
 
 export interface UserRow {
   id: string;
-  clerkUserId: string;
+  firebaseUid: string;
   email: string;
   fullName: string | null;
   avatarUrl: string | null;

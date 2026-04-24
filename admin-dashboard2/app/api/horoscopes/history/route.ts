@@ -29,8 +29,8 @@ function toMobileHoroscope(row: Record<string, unknown>) {
 
 export async function GET() {
   try {
-    const clerkUserId = await getUserIdFromRequest();
-    const user = await getCurrentUser(clerkUserId);
+    const firebaseUid = await getUserIdFromRequest();
+    const user = await getCurrentUser(firebaseUid);
     const zodiacSign = user && (user as { zodiacSign?: string }).zodiacSign;
 
     if (!zodiacSign) {

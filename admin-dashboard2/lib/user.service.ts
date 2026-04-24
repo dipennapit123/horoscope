@@ -2,8 +2,8 @@ import { randomUUID } from "crypto";
 import { query } from "./db";
 import type { ZodiacSign, UserActivityAction } from "./types";
 
-export async function syncClerkUser(params: {
-  clerkUserId: string;
+export async function syncFirebaseUser(params: {
+  firebaseUid: string;
   email: string;
   fullName?: string;
   avatarUrl?: string;
@@ -15,8 +15,8 @@ export async function syncClerkUser(params: {
       : null;
   const fullName = params.fullName?.trim() || null;
   const r = await query<{ id: string }>(
-    `SELECT id FROM "User" WHERE "clerkUserId" = $1`,
-    [params.clerkUserId],
+    `SELECT id FROM "User" WHERE "firebaseUid" = $1`,
+    [params.firebaseUid],
   );
   const existing = r.rows[0];
   const now = new Date().toISOString();
@@ -24,31 +24,31 @@ export async function syncClerkUser(params: {
   if (existing) {
     await query(
       `UPDATE "User" SET email = $1, "fullName" = $2, "avatarUrl" = $3, timezone = $4, "updatedAt" = $5
-       WHERE "clerkUserId" = $6`,
+       WHERE "firebaseUid" = $6`,
       [
         params.email,
         fullName,
         avatarUrl,
         params.timezone ?? null,
         now,
-        params.clerkUserId,
+        params.firebaseUid,
       ],
     );
     const u = await query(
-      `SELECT id, "clerkUserId", email, "fullName", "avatarUrl", "zodiacSign", timezone, "lastActiveAt", "createdAt", "updatedAt"
-       FROM "User" WHERE "clerkUserId" = $1`,
-      [params.clerkUserId],
+      `SELECT id, "firebaseUid", email, "fullName", "avatarUrl", "zodiacSign", timezone, "lastActiveAt", "createdAt", "updatedAt"
+       FROM "User" WHERE "firebaseUid" = $1`,
+      [params.firebaseUid],
     );
     return u.rows[0] as Record<string, unknown>;
   }
 
   const id = randomUUID();
   await query(
-    `INSERT INTO "User" (id, "clerkUserId", email, "fullName", "avatarUrl", timezone, "createdAt", "updatedAt")
+    `INSERT INTO "User" (id, "firebaseUid", email, "fullName", "avatarUrl", timezone, "createdAt", "updatedAt")
      VALUES ($1, $2, $3, $4, $5, $6, $7, $7)`,
     [
       id,
-      params.clerkUserId,
+      params.firebaseUid,
       params.email,
       fullName,
       avatarUrl,
@@ -57,42 +57,80 @@ export async function syncClerkUser(params: {
     ],
   );
   const u = await query(
-    `SELECT id, "clerkUserId", email, "fullName", "avatarUrl", "zodiacSign", timezone, "lastActiveAt", "createdAt", "updatedAt"
+    `SELECT id, "firebaseUid", email, "fullName", "avatarUrl", "zodiacSign", timezone, "lastActiveAt", "createdAt", "updatedAt"
      FROM "User" WHERE id = $1`,
     [id],
   );
   return u.rows[0] as Record<string, unknown>;
 }
 
-export async function getCurrentUser(clerkUserId: string) {
+export async function getCurrentUser(firebaseUid: string) {
   const r = await query(
-    `SELECT id, "clerkUserId", email, "fullName", "avatarUrl", "zodiacSign", timezone, "lastActiveAt", "createdAt", "updatedAt"
-     FROM "User" WHERE "clerkUserId" = $1`,
-    [clerkUserId],
+    `SELECT id, "firebaseUid", email, "fullName", "avatarUrl", "zodiacSign", timezone, "lastActiveAt", "createdAt", "updatedAt"
+     FROM "User" WHERE "firebaseUid" = $1`,
+    [firebaseUid],
   );
   return r.rows[0] ?? null;
 }
 
+/** Clears the token on User so pillar/horoscope pushes stop after logout. PushDevice is unchanged for motivational broadcasts. */
+export async function clearUserExpoPushToken(firebaseUid: string) {
+  const now = new Date().toISOString();
+  await query(
+    `UPDATE "User" SET "expoPushToken" = NULL, "expoPushPlatform" = NULL, "expoPushUpdatedAt" = NULL, "updatedAt" = $1 WHERE "firebaseUid" = $2`,
+    [now, firebaseUid],
+  );
+}
+
+export async function updateUserExpoPushToken(
+  firebaseUid: string,
+  expoPushToken: string,
+  platform: string,
+) {
+  const now = new Date().toISOString();
+  const updated = await query(
+    `UPDATE "User" SET "expoPushToken" = $1, "expoPushPlatform" = $2, "expoPushUpdatedAt" = $3, "updatedAt" = $3
+     WHERE "firebaseUid" = $4`,
+    [expoPushToken, platform, now, firebaseUid],
+  );
+  if (updated.rowCount > 0) return;
+
+  // Push registration can run before /users/sync-firebase-user; plain UPDATE would affect 0 rows silently.
+  const id = randomUUID();
+  await query(
+    `INSERT INTO "User" (id, "firebaseUid", email, "expoPushToken", "expoPushPlatform", "expoPushUpdatedAt", "createdAt", "updatedAt")
+     VALUES ($1, $2, $3, $4, $5, $6, $6, $6)`,
+    [
+      id,
+      firebaseUid,
+      `${firebaseUid}@astradaily.local`,
+      expoPushToken,
+      platform,
+      now,
+    ],
+  );
+}
+
 export async function updateUserZodiac(
-  clerkUserId: string,
+  firebaseUid: string,
   zodiac: ZodiacSign,
 ) {
   const r = await query(
-    `UPDATE "User" SET "zodiacSign" = $1, "updatedAt" = $2 WHERE "clerkUserId" = $3
-     RETURNING id, "clerkUserId", email, "fullName", "avatarUrl", "zodiacSign", timezone, "lastActiveAt", "createdAt", "updatedAt"`,
-    [zodiac, new Date().toISOString(), clerkUserId],
+    `UPDATE "User" SET "zodiacSign" = $1, "updatedAt" = $2 WHERE "firebaseUid" = $3
+     RETURNING id, "firebaseUid", email, "fullName", "avatarUrl", "zodiacSign", timezone, "lastActiveAt", "createdAt", "updatedAt"`,
+    [zodiac, new Date().toISOString(), firebaseUid],
   );
   if (r.rows.length > 0) return r.rows[0] as Record<string, unknown>;
 
   const id = randomUUID();
   const now = new Date().toISOString();
   await query(
-    `INSERT INTO "User" (id, "clerkUserId", email, "zodiacSign", "createdAt", "updatedAt")
+    `INSERT INTO "User" (id, "firebaseUid", email, "zodiacSign", "createdAt", "updatedAt")
      VALUES ($1, $2, $3, $4, $5, $5)`,
-    [id, clerkUserId, `${clerkUserId}@astradaily.local`, zodiac, now],
+    [id, firebaseUid, `${firebaseUid}@astradaily.local`, zodiac, now],
   );
   const u = await query(
-    `SELECT id, "clerkUserId", email, "fullName", "avatarUrl", "zodiacSign", timezone, "lastActiveAt", "createdAt", "updatedAt"
+    `SELECT id, "firebaseUid", email, "fullName", "avatarUrl", "zodiacSign", timezone, "lastActiveAt", "createdAt", "updatedAt"
      FROM "User" WHERE id = $1`,
     [id],
   );
@@ -102,7 +140,7 @@ export async function updateUserZodiac(
 const DEDUPE_WINDOW_MS = 5 * 60 * 1000;
 
 export async function recordActivity(
-  clerkUserId: string,
+  firebaseUid: string,
   action: UserActivityAction,
   meta?: {
     sessionId?: string;
@@ -112,8 +150,8 @@ export async function recordActivity(
   },
 ) {
   const userResult = await query(
-    `SELECT id FROM "User" WHERE "clerkUserId" = $1`,
-    [clerkUserId],
+    `SELECT id FROM "User" WHERE "firebaseUid" = $1`,
+    [firebaseUid],
   );
   const user = userResult.rows[0] as { id: string } | undefined;
   if (!user) return null;

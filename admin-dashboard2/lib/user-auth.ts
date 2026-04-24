@@ -4,13 +4,13 @@ import { ApiError } from "./api-error";
 import { firebaseAdminAuth } from "./firebase-admin";
 
 /**
- * Verifies Firebase ID token (Authorization: Bearer <token>) and returns uid.
- * For local/dev fallback only, x-clerk-user-id is accepted when explicitly enabled.
+ * Verifies Firebase ID token (Authorization: Bearer <token>) and returns Firebase uid.
+ * For local/dev fallback only, x-firebase-uid is accepted when explicitly enabled.
  */
 export async function getUserIdFromRequest(): Promise<string> {
   const h = await headers();
   const authHeader = h.get("authorization");
-  const headerUserId = h.get("x-clerk-user-id");
+  const headerUserId = h.get("x-firebase-uid");
 
   if (authHeader?.startsWith("Bearer ")) {
     try {
@@ -25,6 +25,11 @@ export async function getUserIdFromRequest(): Promise<string> {
         "[user-auth] Firebase verifyIdToken failed:",
         e instanceof Error ? e.message : e,
       );
+      // If local/dev fallback is enabled, allow x-firebase-uid when token verification fails.
+      // This is useful when Firebase Admin credentials aren't configured in the API runtime.
+      if (process.env.ALLOW_HEADER_USER_ID_FALLBACK === "true" && headerUserId) {
+        return headerUserId;
+      }
       throw new ApiError(401, "Invalid token.");
     }
   }

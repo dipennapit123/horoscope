@@ -13,7 +13,7 @@ const bodySchema = z.object({
 
 export async function PATCH(request: NextRequest) {
   try {
-    const clerkUserId = await getUserIdFromRequest();
+    const firebaseUid = await getUserIdFromRequest();
     const body = await request.json();
     const parsed = bodySchema.safeParse(body);
     if (!parsed.success) {
@@ -22,7 +22,7 @@ export async function PATCH(request: NextRequest) {
         { status: 400 }
       );
     }
-    const updated = await updateUserZodiac(clerkUserId, parsed.data.zodiacSign);
+    const updated = await updateUserZodiac(firebaseUid, parsed.data.zodiacSign);
     return NextResponse.json({ success: true, data: updated });
   } catch (err) {
     const { status, message } = handleApiError(err);

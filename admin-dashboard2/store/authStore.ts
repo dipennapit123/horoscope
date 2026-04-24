@@ -13,6 +13,8 @@ export interface AdminInfo {
 interface AuthState {
   token: string | null;
   admin: AdminInfo | null;
+  hasHydrated: boolean;
+  setHasHydrated: (v: boolean) => void;
   login: (payload: { token: string; admin: AdminInfo }) => void;
   logout: () => void;
 }
@@ -22,9 +24,16 @@ export const useAuthStore = create<AuthState>()(
     (set) => ({
       token: null,
       admin: null,
+      hasHydrated: false,
+      setHasHydrated: (hasHydrated) => set({ hasHydrated }),
       login: ({ token, admin }) => set({ token, admin }),
       logout: () => set({ token: null, admin: null }),
     }),
-    { name: "astradaily-admin-auth" }
+    {
+      name: "astradaily-admin-auth",
+      onRehydrateStorage: () => (state) => {
+        state?.setHasHydrated(true);
+      },
+    }
   )
 );

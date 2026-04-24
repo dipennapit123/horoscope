@@ -14,10 +14,13 @@ function getToken(): string | null {
   }
 }
 
+/** Standard JSON shape for admin API success responses. */
+export type ApiSuccess<T> = { success: true; data: T };
+
 async function request<T>(
   path: string,
-  options: RequestInit = {}
-): Promise<{ data: T }> {
+  options: RequestInit = {},
+): Promise<ApiSuccess<T>> {
   const token = getToken();
   const headers: HeadersInit = {
     "Content-Type": "application/json",
@@ -30,12 +33,15 @@ async function request<T>(
     ...options,
     headers,
   });
-  const json = await res.json().catch(() => ({}));
+  const json = (await res.json().catch(() => ({}))) as ApiSuccess<T> & {
+    success?: boolean;
+    error?: { message?: string };
+  };
   if (!res.ok) {
     const msg = json?.error?.message ?? res.statusText;
     throw new Error(msg);
   }
-  return json;
+  return json as ApiSuccess<T>;
 }
 
 function pathOf(p: string) {

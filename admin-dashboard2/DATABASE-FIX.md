@@ -23,10 +23,10 @@ Your app can’t reach the database host. Do the following.
 Example (password is `mypass@123`):
 
 ```env
-DATABASE_URL="postgresql://postgres.tkfdajsukbgrgipvrbly:mypass%40123@aws-0-us-east-1.pooler.supabase.com:6543/postgres"
+DATABASE_URL="postgresql://postgres.YOUR_PROJECT_REF:YOUR_PASSWORD@aws-0-us-east-1.pooler.supabase.com:6543/postgres"
 ```
 
-6. Put this in **admin-dashboard2** `.env` and `.env.local` (and in **backend** `.env` if you use it).
+6. Put this in **admin-dashboard2** `.env` (and in **backend** `.env` if you use it). Use `.env` only, not `.env.local`.
 7. Restart the dev server: stop `npm run dev`, then run it again.
 
 ## 3. If the direct host works for you
@@ -34,7 +34,7 @@ DATABASE_URL="postgresql://postgres.tkfdajsukbgrgipvrbly:mypass%40123@aws-0-us-e
 Some networks resolve the direct host `db.xxx.supabase.co` fine. Then keep:
 
 ```env
-DATABASE_URL="postgresql://postgres:YOUR_PASSWORD_ENCODED@db.tkfdajsukbgrgipvrbly.supabase.co:5432/postgres"
+DATABASE_URL="postgresql://postgres:YOUR_PASSWORD_ENCODED@db.YOUR_PROJECT_REF.supabase.co:5432/postgres"
 ```
 
 Use the **Database** → **Connection string** → **URI** from the dashboard so the host and port match what Supabase shows.
@@ -44,7 +44,7 @@ Use the **Database** → **Connection string** → **URI** from the dashboard so
 In a terminal:
 
 ```bash
-nslookup db.tkfdajsukbgrgipvrbly.supabase.co
+nslookup db.YOUR_PROJECT_REF.supabase.co
 ```
 
 If that fails, the direct host doesn’t resolve on your network — use the **pooler** URL from step 2 instead.

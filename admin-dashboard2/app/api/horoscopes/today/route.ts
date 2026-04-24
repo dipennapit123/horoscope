@@ -7,8 +7,8 @@ import { handleApiError } from "@/lib/api-error";
 
 export async function GET() {
   try {
-    const clerkUserId = await getUserIdFromRequest();
-    const user = await getCurrentUser(clerkUserId);
+    const firebaseUid = await getUserIdFromRequest();
+    const user = await getCurrentUser(firebaseUid);
     const zodiacSign = user && (user as { zodiacSign?: string }).zodiacSign;
 
     if (!zodiacSign) {

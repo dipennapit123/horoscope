@@ -2,12 +2,19 @@ import { Pool } from "pg";
 
 const isVercel = process.env.VERCEL === "1";
 
-/** If URL is Supabase pooler host but port 5432, return same URL with port 6543 (Session pooler port). */
+/** If URL is Supabase pooler host but port 5432, return same URL with port 6543 (transaction pooler port). */
 function ensurePoolerPort(url: string): string {
   if (!url.includes("pooler.supabase.com")) return url;
-  // Supabase Session pooler uses 6543; 5432 on pooler host often fails from serverless
+  // Supabase transaction pooler uses 6543; 5432 on pooler host is often session mode — try 6543 for serverless/pg
   if (url.includes(":5432/")) return url.replace(":5432/", ":6543/");
   return url;
+}
+
+/** Supabase transaction pooler (port 6543) requires pgbouncer mode for node-pg. */
+function normalizePoolerForPg(url: string): string {
+  if (!url.includes("pooler.supabase.com") || !url.includes(":6543")) return url;
+  if (/\bpgbouncer=true\b/.test(url)) return url;
+  return url.includes("?") ? `${url}&pgbouncer=true` : `${url}?pgbouncer=true`;
 }
 
 function getDatabaseUrls(): string[] {
@@ -24,17 +31,17 @@ function getDatabaseUrls(): string[] {
   const add = (url: string) => {
     const trimmed = url.trim();
     if (!trimmed || trimmed.startsWith("${{")) return;
+    const withPgBouncer = normalizePoolerForPg(trimmed);
     // Supabase pooler with 5432 fails from serverless; try 6543 first
     if (trimmed.includes("pooler.supabase.com") && trimmed.includes(":5432/")) {
-      urls.push(ensurePoolerPort(trimmed));
+      urls.push(normalizePoolerForPg(ensurePoolerPort(trimmed)));
     }
-    urls.push(trimmed);
+    urls.push(withPgBouncer);
   };
 
-  // On Vercel, prefer pooler first (recommended for serverless; use port 6543 for Supabase Session pooler)
-  if (isVercel && pooler) add(pooler);
+  // Prefer pooler first when set (works better on Vercel and local when direct db.* times out).
+  if (pooler) add(pooler);
   if (primary) add(primary);
-  if (!isVercel && pooler) add(pooler);
 
   // Dedupe so we don't try same URL twice (e.g. primary and pooler were same)
   return [...new Set(urls)];
@@ -69,7 +76,8 @@ let _currentUrl: string | null = null;
 
 function createPool(url: string): Pool {
   const max = isVercel ? 2 : 5;
-  const connectionTimeoutMillis = isVercel ? 10000 : 6000;
+  // Local direct DB can be slow; short timeouts cause false "connection terminated" on first query.
+  const connectionTimeoutMillis = isVercel ? 10000 : 20000;
   return new Pool({
     connectionString: url,
     max,
@@ -87,7 +95,7 @@ export function getPool(): Pool | null {
     return null;
   }
   _currentUrl = urls[0];
-  if (isVercel) {
+  if (process.env.NODE_ENV === "development" || isVercel) {
     console.log("[db] Using URL (masked):", maskUrl(_currentUrl), "poolerFirst=", !!process.env.DATABASE_URL_POOLER);
   }
   _pool = createPool(_currentUrl);
@@ -104,7 +112,7 @@ export async function query<T = unknown>(
   text: string,
   values?: unknown[]
 ): Promise<{ rows: T[]; rowCount: number }> {
-  let p = getPool();
+  const p = getPool();
   if (!p) {
     const msg = "Database not configured: set DATABASE_URL or DATABASE_URL_POOLER.";
     console.error("[db]", msg);
@@ -142,6 +150,13 @@ export async function query<T = unknown>(
     }
 
     console.error("[db] All connections failed. Original error:", msg, "code=", code);
+    const lower = msg.toLowerCase();
+    if (lower.includes("tenant or user not found") || lower.includes("tenant/user")) {
+      throw new Error(
+        "Supabase pooler rejected the database user (password or postgres.<project-ref> user wrong, or use the exact \"Transaction pooler\" URI from Supabase → Settings → Database). " +
+          msg
+      );
+    }
     throw err;
   }
 }

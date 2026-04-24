@@ -4,10 +4,10 @@ Single Next.js app with **backend API** and **admin frontend** in one project. N
 
 ## Run locally
 
-1. Copy env and set your database + JWT secret:
+1. Copy env and set your database + secrets (all in **`.env` only** — not `.env.local`):
    ```bash
-   cp .env.example .env.local
-   # Edit .env.local: DATABASE_URL, ADMIN_JWT_SECRET, optionally GROQ_API_KEY
+   cp .env.example .env
+   # Edit .env: DATABASE_URL, ADMIN_JWT_SECRET, optionally GROQ_API_KEY, Firebase, etc.
    ```
 
 2. Install and run:

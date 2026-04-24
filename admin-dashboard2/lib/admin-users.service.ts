@@ -110,6 +110,90 @@ export async function getUserAnalytics() {
   return { dau, mau, yearly: monthlyActiveUsers };
 }
 
+export type DailyActiveUsersReport = {
+  date: string;
+  dau: number;
+  users: {
+    id: string;
+    email: string;
+    fullName: string | null;
+    zodiacSign: string | null;
+    activityCount: number;
+    lastActivityAt: string;
+  }[];
+  total: number;
+  page: number;
+  pageSize: number;
+};
+
+/** Users with ≥1 UserActivity row on the given UTC calendar day, paginated. */
+export async function getDailyActiveUsersReport(params: {
+  date: Date;
+  page: number;
+  pageSize: number;
+}): Promise<DailyActiveUsersReport> {
+  const dayStart = startOfDay(params.date);
+  const dayEnd = endOfDay(params.date);
+  const page = params.page > 0 ? params.page : 1;
+  const pageSize =
+    params.pageSize > 0 ? Math.min(params.pageSize, 100) : 25;
+  const skip = (page - 1) * pageSize;
+  const startIso = dayStart.toISOString();
+  const endIso = dayEnd.toISOString();
+
+  const [countResult, rowsResult] = await Promise.all([
+    query<{ n: string }>(
+      `SELECT COUNT(*)::text AS n FROM (
+         SELECT a."userId" FROM "UserActivity" a
+         WHERE a."createdAt" >= $1 AND a."createdAt" <= $2
+         GROUP BY a."userId"
+       ) t`,
+      [startIso, endIso],
+    ),
+    query<{
+      id: string;
+      email: string;
+      fullName: string | null;
+      zodiacSign: string | null;
+      activity_count: string;
+      last_activity: Date;
+    }>(
+      `SELECT u.id, u.email, u."fullName", u."zodiacSign",
+              COUNT(a.id)::text AS activity_count,
+              MAX(a."createdAt") AS last_activity
+       FROM "UserActivity" a
+       INNER JOIN "User" u ON u.id = a."userId"
+       WHERE a."createdAt" >= $1 AND a."createdAt" <= $2
+       GROUP BY u.id, u.email, u."fullName", u."zodiacSign"
+       ORDER BY MAX(a."createdAt") DESC
+       LIMIT $3 OFFSET $4`,
+      [startIso, endIso, pageSize, skip],
+    ),
+  ]);
+
+  const total = parseInt(countResult.rows[0]?.n ?? "0", 10);
+  const dateStr = params.date.toISOString().slice(0, 10);
+
+  return {
+    date: dateStr,
+    dau: total,
+    users: rowsResult.rows.map((r) => ({
+      id: r.id,
+      email: r.email,
+      fullName: r.fullName,
+      zodiacSign: r.zodiacSign,
+      activityCount: parseInt(r.activity_count, 10),
+      lastActivityAt:
+        r.last_activity instanceof Date
+          ? r.last_activity.toISOString()
+          : new Date(r.last_activity).toISOString(),
+    })),
+    total,
+    page,
+    pageSize,
+  };
+}
+
 export async function getUserActivity(
   userId: string,
   params?: { limit?: number }

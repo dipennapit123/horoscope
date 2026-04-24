@@ -1,5 +1,6 @@
 import type { ZodiacSign } from "./types";
 import { env } from "./env";
+import * as Astronomy from "astronomy-engine";
 
 export type HoroscopeTone = "mystical" | "modern" | "friendly" | "premium";
 
@@ -88,137 +89,149 @@ class MockGenerator implements HoroscopeGeneratorService {
   }
 }
 
-// Deterministic per-(date+sign) sky snapshot — every value changes when EITHER the date or the zodiac changes
+const ZODIAC_SIGNS_TROPICAL = [
+  "Aries",
+  "Taurus",
+  "Gemini",
+  "Cancer",
+  "Leo",
+  "Virgo",
+  "Libra",
+  "Scorpio",
+  "Sagittarius",
+  "Capricorn",
+  "Aquarius",
+  "Pisces",
+] as const;
+
+function normalizeToUtcNoon(date: Date): Date {
+  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(), 12, 0, 0, 0));
+}
+
+function norm360(deg: number): number {
+  const x = deg % 360;
+  return x < 0 ? x + 360 : x;
+}
+
+function zodiacFromLongitude(lonDeg: number): { sign: string; degInSign: number; absDeg: number } {
+  const absDeg = norm360(lonDeg);
+  const idx = Math.floor(absDeg / 30) % 12;
+  const degInSign = absDeg - idx * 30;
+  return { sign: ZODIAC_SIGNS_TROPICAL[idx] ?? "Aries", degInSign, absDeg };
+}
+
+function fmtDeg(n: number): string {
+  return `${n.toFixed(1)}°`;
+}
+
+function getGeoEclipticLongitude(body: Astronomy.Body, date: Date): number {
+  const v = Astronomy.GeoVector(body, date, true);
+  const ecl = Astronomy.Ecliptic(v);
+  return ecl.elon;
+}
+
+function getMoonPhaseLabel(sunLon: number, moonLon: number): string {
+  const phase = norm360(moonLon - sunLon); // 0=new, 180=full
+  if (phase < 22.5) return "New Moon";
+  if (phase < 67.5) return "Waxing Crescent";
+  if (phase < 112.5) return "First Quarter";
+  if (phase < 157.5) return "Waxing Gibbous";
+  if (phase < 202.5) return "Full Moon";
+  if (phase < 247.5) return "Waning Gibbous";
+  if (phase < 292.5) return "Last Quarter";
+  if (phase < 337.5) return "Waning Crescent";
+  return "New Moon";
+}
+
+type AspectKind = "conjunct" | "sextile" | "square" | "trine" | "opposite";
+const ASPECTS: Array<{ kind: AspectKind; angle: number; orb: number }> = [
+  { kind: "conjunct", angle: 0, orb: 8 },
+  { kind: "sextile", angle: 60, orb: 4 },
+  { kind: "square", angle: 90, orb: 6 },
+  { kind: "trine", angle: 120, orb: 6 },
+  { kind: "opposite", angle: 180, orb: 8 },
+];
+
+function angleDistance(a: number, b: number): number {
+  const d = Math.abs(norm360(a - b));
+  return d > 180 ? 360 - d : d;
+}
+
+function computeTopAspects(
+  positions: Array<{ name: string; lon: number }>,
+  max: number
+): Array<{ a: string; kind: AspectKind; b: string; orb: number }> {
+  const found: Array<{ a: string; kind: AspectKind; b: string; orb: number }> = [];
+  for (let i = 0; i < positions.length; i += 1) {
+    for (let j = i + 1; j < positions.length; j += 1) {
+      const p1 = positions[i];
+      const p2 = positions[j];
+      if (!p1 || !p2) continue;
+      const d = angleDistance(p1.lon, p2.lon);
+      for (const asp of ASPECTS) {
+        const orb = Math.abs(d - asp.angle);
+        if (orb <= asp.orb) {
+          found.push({ a: p1.name, kind: asp.kind, b: p2.name, orb });
+          break;
+        }
+      }
+    }
+  }
+  return found.sort((x, y) => x.orb - y.orb).slice(0, max);
+}
+
+// Real ephemeris snapshot for a date (UTC noon): placements + moon phase + major aspects.
 function getDailyAstroContext(date: Date, zodiac: string): string {
-  const year = date.getUTCFullYear();
-  const month = date.getUTCMonth() + 1;
-  const day = date.getUTCDate();
-  const dayOfYear = Math.floor((date.getTime() - new Date(year, 0, 0).getTime()) / 86400000);
+  const t = normalizeToUtcNoon(date);
+  const dateStr = t.toISOString().slice(0, 10);
 
-  const signs = [
-    "Aries", "Taurus", "Gemini", "Cancer", "Leo", "Virgo",
-    "Libra", "Scorpio", "Sagittarius", "Capricorn", "Aquarius", "Pisces",
+  const bodies: Array<{ name: string; body: Astronomy.Body }> = [
+    { name: "Sun", body: Astronomy.Body.Sun },
+    { name: "Moon", body: Astronomy.Body.Moon },
+    { name: "Mercury", body: Astronomy.Body.Mercury },
+    { name: "Venus", body: Astronomy.Body.Venus },
+    { name: "Mars", body: Astronomy.Body.Mars },
+    { name: "Jupiter", body: Astronomy.Body.Jupiter },
+    { name: "Saturn", body: Astronomy.Body.Saturn },
+    { name: "Uranus", body: Astronomy.Body.Uranus },
+    { name: "Neptune", body: Astronomy.Body.Neptune },
+    { name: "Pluto", body: Astronomy.Body.Pluto },
   ];
-  const zodiacNorm = zodiac.charAt(0).toUpperCase() + zodiac.slice(1).toLowerCase();
-  const zodiacIdx = signs.indexOf(zodiacNorm);
-  const zi = zodiacIdx >= 0 ? zodiacIdx : 0;
 
-  // Seed that combines date AND zodiac so every (date, sign) pair is unique
-  const dateSeed = year * 10000 + month * 100 + day;
-  const signSalt = (zi + 1) * 7919; // large prime per sign
-  const seed = dateSeed * 13 + signSalt;
+  const longitudes = bodies.map(({ name, body }) => ({
+    name,
+    lon: norm360(getGeoEclipticLongitude(body, t)),
+  }));
 
-  const planets = ["Mercury", "Venus", "Mars", "Jupiter", "Saturn", "Uranus", "Neptune", "Pluto"];
-  const aspects = [
-    "conjunct", "sextile", "square", "trine", "opposite",
-    "semi-sextile", "quincunx", "parallel",
-  ];
-  const moonPhases = [
-    "New Moon", "Waxing Crescent", "First Quarter", "Waxing Gibbous",
-    "Full Moon", "Waning Gibbous", "Last Quarter", "Waning Crescent",
-  ];
-  const themes = [
-    "communication breakthroughs", "financial restructuring", "romantic clarity",
-    "career momentum", "creative inspiration", "emotional processing",
-    "boundary setting", "spiritual awakening", "health reset", "social expansion",
-    "solitude and reflection", "leadership opportunities", "healing old wounds",
-    "unexpected travel", "technology or innovation", "family dynamics shift",
-    "artistic expression", "risk-taking energy", "patience and discipline",
-    "releasing what no longer serves you", "building new foundations",
-    "reconciliation", "deepening trust", "exploring unknown territory",
-  ];
-  const challenges = [
-    "overthinking", "impatience", "scattered energy", "self-doubt",
-    "avoidance", "stubbornness", "people-pleasing", "emotional volatility",
-    "procrastination", "overcommitting", "miscommunication", "jealousy",
-    "burnout", "indecisiveness", "control issues", "fear of vulnerability",
-  ];
-  const elements = ["fire", "earth", "air", "water"];
-  const signElement = elements[zi % 4];
-  const rulerPlanets: Record<string, string> = {
-    Aries: "Mars", Taurus: "Venus", Gemini: "Mercury", Cancer: "Moon",
-    Leo: "Sun", Virgo: "Mercury", Libra: "Venus", Scorpio: "Pluto",
-    Sagittarius: "Jupiter", Capricorn: "Saturn", Aquarius: "Uranus", Pisces: "Neptune",
-  };
-  const ruler = rulerPlanets[zodiacNorm] ?? "Sun";
+  const lonByName = new Map(longitudes.map((p) => [p.name, p.lon]));
+  const sunLon = lonByName.get("Sun") ?? 0;
+  const moonLon = lonByName.get("Moon") ?? 0;
+  const moonPhase = getMoonPhaseLabel(sunLon, moonLon);
 
-  const h = (offset: number) => ((seed * 2654435761 + offset * 999983) >>> 0);
+  const placements = longitudes.map(({ name, lon }) => {
+    const z = zodiacFromLongitude(lon);
+    return `${name}: ${fmtDeg(z.degInSign)} ${z.sign}`;
+  });
 
-  // Moon phase is shared across signs (real astro), but moon's house/angle differs per sign
-  const moonPhase = moonPhases[Math.floor(dayOfYear / 3.7) % moonPhases.length];
-  const moonSign = signs[(h(1) + zi * 3) % 12];
-  const moonHouse = (h(2) % 12) + 1;
-
-  const sunDeg = Math.floor((dayOfYear / 365.25) * 360);
-  const sunSign = signs[Math.floor(((dayOfYear + 9) % 365) / 30.4) % 12];
-
-  const mercurySign = signs[h(7) % 12];
-  const mercuryHouse = (h(8) % 12) + 1;
-  const venusSign = signs[h(13) % 12];
-  const venusHouse = (h(14) % 12) + 1;
-  const marsSign = signs[h(19) % 12];
-  const marsHouse = (h(20) % 12) + 1;
-  const jupiterSign = signs[h(23) % 12];
-  const saturnSign = signs[h(29) % 12];
-
-  const risingSign = signs[h(37) % 12];
-  const rulingHouse = (h(41) % 12) + 1;
-
-  const a1p = planets[h(50) % planets.length];
-  const a1t = aspects[h(51) % aspects.length];
-  const a1tgt = planets[h(52) % planets.length];
-  const a2p = planets[h(60) % planets.length];
-  const a2t = aspects[h(61) % aspects.length];
-  const a2tgt = planets[h(62) % planets.length];
-  // Third aspect unique to each sign
-  const a3p = planets[h(65) % planets.length];
-  const a3t = aspects[h(66) % aspects.length];
-  const a3tgt = planets[h(67) % planets.length];
-
-  const theme1 = themes[h(70) % themes.length];
-  const theme2 = themes[h(71) % themes.length];
-  const challenge = challenges[h(80) % challenges.length];
-
-  const luckyNumber = (h(90) % 99) + 1;
-  const peakHour = (h(95) % 12) + 8;
-  const colorPool = ["gold", "silver", "deep blue", "emerald green", "crimson", "violet", "ivory", "amber", "teal", "rose", "midnight blue", "burnt orange"];
-  const luckyColor = colorPool[h(96) % colorPool.length];
-
-  const isRetrograde = (planet: string, idx: number) => (h(100 + idx) % 10) < 2;
-  const retrogrades = planets.filter(isRetrograde);
-
-  const wealthFocus = ["investments", "salary negotiation", "side income", "debt reduction", "saving strategy", "new revenue streams", "contract review", "budget overhaul"][h(110) % 8];
-  const loveFocus = ["deep conversation", "quality time", "physical affection", "shared adventure", "vulnerability", "forgiveness", "flirting energy", "emotional honesty"][h(111) % 8];
-  const healthFocus = ["cardio energy", "restorative sleep", "hydration", "stretching and flexibility", "mental clarity", "digestive health", "stress release", "outdoor movement"][h(112) % 8];
-
-  const dateStr = date.toISOString().slice(0, 10);
+  const topAspects = computeTopAspects(
+    // aspects with the personal planets are most “felt”
+    longitudes.filter((p) => ["Sun", "Moon", "Mercury", "Venus", "Mars", "Jupiter", "Saturn"].includes(p.name)),
+    4
+  ).map((a) => `• ${a.a} ${a.kind} ${a.b} (orb ${fmtDeg(a.orb)})`);
 
   return [
-    `PERSONALIZED SKY for ${zodiac} (${signElement} sign, ruled by ${ruler}) on ${dateStr}:`,
+    `SKY SNAPSHOT for ${zodiac} on ${dateStr} (tropical zodiac; computed at 12:00 UTC):`,
     "",
-    `Moon: ${moonPhase} in ${moonSign}, transiting your ${moonHouse}th house.`,
-    `Sun at ${sunDeg}° in ${sunSign}. Your rising sign today: ${risingSign}.`,
-    `Mercury in ${mercurySign} (${mercuryHouse}th house) — affects your communication and thinking.`,
-    `Venus in ${venusSign} (${venusHouse}th house) — shapes love, beauty, and money.`,
-    `Mars in ${marsSign} (${marsHouse}th house) — drives your energy, ambition, and physical vitality.`,
-    `Jupiter in ${jupiterSign}, Saturn in ${saturnSign}.`,
-    retrogrades.length > 0 ? `Retrogrades active: ${retrogrades.join(", ")}.` : "No major retrogrades today.",
+    `Moon phase: ${moonPhase}.`,
     "",
-    `ASPECTS affecting ${zodiac} today:`,
-    `  • ${a1p} ${a1t} ${a1tgt}`,
-    `  • ${a2p} ${a2t} ${a2tgt}`,
-    `  • ${a3p} ${a3t} ${a3tgt}`,
+    "Planet placements:",
+    ...placements.map((p) => `- ${p}`),
     "",
-    `${zodiac}'s activated house: ${rulingHouse}th house.`,
-    `Today's themes for ${zodiac}: ${theme1} and ${theme2}.`,
-    `Today's challenge for ${zodiac}: ${challenge}.`,
+    "Major aspects:",
+    ...(topAspects.length ? topAspects : ["• No tight major aspects within typical orbs today."]),
     "",
-    `SPECIFIC FOCUS AREAS for ${zodiac}:`,
-    `  • Wealth/Career focus: ${wealthFocus}`,
-    `  • Love/Relationship focus: ${loveFocus}`,
-    `  • Health/Vitality focus: ${healthFocus}`,
-    "",
-    `Lucky number: ${luckyNumber}. Lucky color: ${luckyColor}. Peak energy: ${peakHour}:00.`,
+    "Constraints:",
+    "- Do NOT mention houses or rising signs (location/time not provided).",
   ].join("\n");
 }
 
@@ -226,7 +239,6 @@ function buildMessages(input: GenerateHoroscopeInput): { role: "system" | "user"
   const signFlavor =
     signFlavors[input.zodiacSign] ??
     "use the sign's classic strengths and challenges in a grounded way.";
-  const dateStr = input.date.toISOString().slice(0, 10);
   const astroContext = getDailyAstroContext(input.date, input.zodiacSign);
 
   const system = {
@@ -234,10 +246,10 @@ function buildMessages(input: GenerateHoroscopeInput): { role: "system" | "user"
     content: [
       "You are an expert astrology copywriter for AstraDaily, a premium mobile horoscope app.",
       "You write personalized daily horoscopes that feel genuinely different each day because you base them on the planetary positions and aspects provided below.",
-      "Write in simple, warm, easy-to-read language—friendly advice, not abstract poetry.",
+      "Write in simple, warm, easy-to-read language. Friendly advice, not abstract poetry.",
       "",
       "STRICT RULES:",
-      "1. Your horoscope MUST reference the specific planets, aspects, moon phase, and themes given in TODAY'S SKY. Do not ignore them.",
+      "1. Your horoscope MUST reference the specific planet placements, aspects, and moon phase given in the SKY SNAPSHOT. Do not ignore them.",
       "2. WEALTH advice must connect to the planets affecting finances/career for this sign today (e.g. Jupiter, Saturn, 2nd/10th house).",
       "3. LOVE advice must connect to the planets affecting relationships today (e.g. Venus, Moon, 7th house).",
       "4. HEALTH advice must connect to the planets affecting vitality today (e.g. Mars, Moon phase, 6th house).",
@@ -245,6 +257,12 @@ function buildMessages(input: GenerateHoroscopeInput): { role: "system" | "user"
       "6. The summary must mention at least ONE specific planet or aspect from today's sky.",
       "7. weeklyOutlook should tie the day's themes to broader patterns for the week ahead.",
       "8. Each field: 2-3 sentences. Simple English. No filler.",
+      "9. Do NOT mention houses or rising signs unless they are explicitly provided in the SKY SNAPSHOT.",
+      "",
+      "STYLE RULES:",
+      "A. Do NOT use em dashes or en dashes (— or –). Use periods or commas instead.",
+      "B. Avoid AI-sounding phrases like: 'cosmic alignment', 'the universe wants', 'as the week unfolds', 'dynamic alignment', 'stellar shift'.",
+      "C. Use concrete, natural language. Write like a good human editor. No hype.",
     ].join("\n"),
   };
 
@@ -307,13 +325,22 @@ async function groqGenerate(
       } catch {
         parsed = {};
       }
+      const clean = (value: unknown): string | undefined => {
+        if (typeof value !== "string") return undefined;
+        return value
+          .replace(/[—–]/g, ",")
+          .replace(/\s+,/g, ",")
+          .replace(/,\s*,+/g, ",")
+          .replace(/\s{2,}/g, " ")
+          .trim();
+      };
       return {
-        title: parsed.title ?? "Cosmic Alignment",
-        summary: parsed.summary ?? "The stars highlight a moment to realign your everyday choices with your deeper intentions.",
-        wealthText: parsed.wealthText ?? "Grounded choices around money create more stability than quick wins today.",
-        loveText: parsed.loveText ?? "Honest, compassionate conversations open the door to deeper connection.",
-        healthText: parsed.healthText ?? "Gentle movement and mindful pauses help you feel centered and restored.",
-        weeklyOutlook: parsed.weeklyOutlook ?? "Across the week, subtle shifts accumulate into meaningful momentum.",
+        title: clean(parsed.title) ?? "Daily Focus",
+        summary: clean(parsed.summary) ?? "Today is a good day to keep things simple and act on one clear priority.",
+        wealthText: clean(parsed.wealthText) ?? "Take one practical step with money or work today. Review a bill, a plan, or a message you have been avoiding.",
+        loveText: clean(parsed.loveText) ?? "Be direct and kind. Say what you need and ask one good question instead of guessing.",
+        healthText: clean(parsed.healthText) ?? "Choose something you can actually repeat. A walk, water, and an earlier bedtime will do more than a big reset.",
+        weeklyOutlook: clean(parsed.weeklyOutlook) ?? "This week rewards steady effort. Small consistent choices add up.",
       };
     } catch (err: unknown) {
       lastError = err;

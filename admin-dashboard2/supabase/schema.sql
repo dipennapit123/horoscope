@@ -12,10 +12,10 @@ CREATE TABLE IF NOT EXISTS "Admin" (
   "updatedAt" TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
--- User (mobile app users, synced from Clerk)
+-- User (mobile app users, identified by Firebase UID)
 CREATE TABLE IF NOT EXISTS "User" (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  "clerkUserId" TEXT NOT NULL UNIQUE,
+  "firebaseUid" TEXT NOT NULL UNIQUE,
   email TEXT NOT NULL,
   "fullName" TEXT,
   "avatarUrl" TEXT,
@@ -29,7 +29,24 @@ CREATE TABLE IF NOT EXISTS "User" (
   "updatedAt" TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE INDEX IF NOT EXISTS "User_clerkUserId_idx" ON "User" ("clerkUserId");
+-- Migration helper (safe to run on an existing DB that still has "clerkUserId").
+-- Must run BEFORE any CREATE INDEX on "firebaseUid", or old databases error out.
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'User' AND column_name = 'clerkUserId'
+  ) AND NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'User' AND column_name = 'firebaseUid'
+  ) THEN
+    ALTER TABLE "User" RENAME COLUMN "clerkUserId" TO "firebaseUid";
+  END IF;
+END $$;
+
+DROP INDEX IF EXISTS "User_clerkUserId_idx";
+
+CREATE INDEX IF NOT EXISTS "User_firebaseUid_idx" ON "User" ("firebaseUid");
 
 -- UserActivity (app open, horoscope view, etc.)
 CREATE TABLE IF NOT EXISTS "UserActivity" (
@@ -75,3 +92,36 @@ CREATE TABLE IF NOT EXISTS "Horoscope" (
 
 CREATE INDEX IF NOT EXISTS "Horoscope_date_idx" ON "Horoscope" (date);
 CREATE INDEX IF NOT EXISTS "Horoscope_zodiacSign_date_idx" ON "Horoscope" ("zodiacSign", date);
+
+-- Push notifications (Expo) + campaign rotation
+ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "expoPushToken" TEXT;
+ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "expoPushPlatform" TEXT;
+ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "expoPushUpdatedAt" TIMESTAMPTZ;
+
+CREATE TABLE IF NOT EXISTS "NotificationCampaignState" (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  "nextPillar" TEXT NOT NULL CHECK ("nextPillar" IN ('WEALTH','LOVE','HEALTH')) DEFAULT 'WEALTH',
+  "updatedAt" TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS "MotivationalQuote" (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  body TEXT NOT NULL,
+  "isActive" BOOLEAN NOT NULL DEFAULT true,
+  "createdAt" TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- PushDevice: stores Expo push tokens for ALL devices (including users who
+-- have not signed in yet). Motivational broadcasts target this table so
+-- anonymous users still receive them. Pillar/horoscope broadcasts still use
+-- "User" (they require zodiac + auth).
+CREATE TABLE IF NOT EXISTS "PushDevice" (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  "expoPushToken" TEXT NOT NULL UNIQUE,
+  platform TEXT,
+  "firebaseUid" TEXT,
+  "createdAt" TIMESTAMPTZ NOT NULL DEFAULT now(),
+  "updatedAt" TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS "PushDevice_firebaseUid_idx" ON "PushDevice" ("firebaseUid");

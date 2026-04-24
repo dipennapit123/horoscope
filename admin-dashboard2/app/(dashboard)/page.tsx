@@ -59,9 +59,13 @@ export default function DashboardPage() {
 
   useEffect(() => {
     mounted.current = true;
-    setTodayRangeLabel(`${dayjs().subtract(30, "day").format("MMM D, YYYY")} - ${dayjs().format("MMM D, YYYY")}`);
-    loadAll();
-    return () => { mounted.current = false; };
+    setTodayRangeLabel(
+      `${dayjs().subtract(30, "day").format("MMM D, YYYY")} - ${dayjs().format("MMM D, YYYY")}`
+    );
+    void loadAll();
+    return () => {
+      mounted.current = false;
+    };
   }, [loadAll]);
 
   const skeleton = <div className="mt-2 h-7 w-16 rounded-2xl bg-purple-900/40 animate-pulse" />;

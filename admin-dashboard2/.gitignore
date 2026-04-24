@@ -30,9 +30,9 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# env files (do not commit)
+# env files (do not commit secrets; `!.env.example` allows a placeholder template in git)
 .env*
-.env.example
+!.env.example
 
 # vercel
 .vercel

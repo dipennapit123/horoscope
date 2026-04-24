@@ -40,6 +40,7 @@ export default function HoroscopesPage() {
   const [loading, setLoading] = useState(true);
   const [viewItem, setViewItem] = useState<Horoscope | null>(null);
   const [viewLoading, setViewLoading] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Record<string, boolean>>({});
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
   const [zodiacFilter, setZodiacFilter] = useState<string>("");
@@ -48,6 +49,9 @@ export default function HoroscopesPage() {
   const [publishAllLoading, setPublishAllLoading] = useState(false);
   const [deleteAllLoading, setDeleteAllLoading] = useState(false);
   const [deleteByDateLoading, setDeleteByDateLoading] = useState(false);
+  const [deleteSelectedLoading, setDeleteSelectedLoading] = useState(false);
+  const [publishSelectedLoading, setPublishSelectedLoading] = useState(false);
+  const [unpublishSelectedLoading, setUnpublishSelectedLoading] = useState(false);
   const loadRef = useRef(0);
 
   const load = useCallback(async (p?: number) => {
@@ -65,6 +69,7 @@ export default function HoroscopesPage() {
       const res = await api.get<Horoscope[]>(`/admin/horoscopes?${params}`);
       if (loadRef.current !== id) return;
       setItems(Array.isArray(res.data) ? res.data : []);
+      setSelectedIds({});
     } catch {
       if (loadRef.current === id) setItems([]);
     } finally {
@@ -91,6 +96,71 @@ export default function HoroscopesPage() {
     await api.delete(`/admin/horoscopes/${id}`);
     load();
   }, [load]);
+
+  const selectedList = Object.entries(selectedIds)
+    .filter(([, v]) => v)
+    .map(([k]) => k);
+
+  const allSelected = items.length > 0 && selectedList.length === items.length;
+
+  const toggleSelectAll = useCallback(() => {
+    if (items.length === 0) return;
+    if (allSelected) {
+      setSelectedIds({});
+      return;
+    }
+    const next: Record<string, boolean> = {};
+    for (const it of items) {
+      next[it.id] = true;
+    }
+    setSelectedIds(next);
+  }, [allSelected, items]);
+
+  const toggleSelectOne = useCallback((id: string) => {
+    setSelectedIds((prev) => {
+      const next = { ...prev };
+      next[id] = !prev[id];
+      if (!next[id]) delete next[id];
+      return next;
+    });
+  }, []);
+
+  const handleDeleteSelected = useCallback(async () => {
+    if (selectedList.length === 0) return;
+    if (!confirm(`Delete ${selectedList.length} selected horoscope(s)? This cannot be undone.`)) return;
+    setDeleteSelectedLoading(true);
+    try {
+      await Promise.all(selectedList.map((id) => api.delete(`/admin/horoscopes/${id}`)));
+      setSelectedIds({});
+      load();
+    } finally {
+      setDeleteSelectedLoading(false);
+    }
+  }, [load, selectedList]);
+
+  const handlePublishSelected = useCallback(async () => {
+    if (selectedList.length === 0) return;
+    if (!confirm(`Publish ${selectedList.length} selected horoscope(s)?`)) return;
+    setPublishSelectedLoading(true);
+    try {
+      await Promise.all(selectedList.map((id) => api.patch(`/admin/horoscopes/${id}/publish`, { isPublished: true })));
+      load();
+    } finally {
+      setPublishSelectedLoading(false);
+    }
+  }, [load, selectedList]);
+
+  const handleUnpublishSelected = useCallback(async () => {
+    if (selectedList.length === 0) return;
+    if (!confirm(`Unpublish ${selectedList.length} selected horoscope(s)?`)) return;
+    setUnpublishSelectedLoading(true);
+    try {
+      await Promise.all(selectedList.map((id) => api.patch(`/admin/horoscopes/${id}/publish`, { isPublished: false })));
+      load();
+    } finally {
+      setUnpublishSelectedLoading(false);
+    }
+  }, [load, selectedList]);
 
   const handlePublishAll = useCallback(async () => {
     if (!confirm("Publish all draft horoscopes?")) return;
@@ -271,6 +341,26 @@ export default function HoroscopesPage() {
         </button>
         <button
           type="button"
+          disabled={publishSelectedLoading || selectedList.length === 0}
+          onClick={handlePublishSelected}
+          className="flex items-center gap-1.5 rounded-full border border-emerald-500/50 bg-emerald-500/10 px-3 py-1.5 text-xs font-bold text-emerald-400 hover:bg-emerald-500/20 disabled:opacity-50"
+          title={selectedList.length ? `Publish ${selectedList.length} selected` : "Select rows to enable"}
+        >
+          <span className="material-symbols-outlined text-sm">done_all</span>
+          {publishSelectedLoading ? "Publishing…" : `Publish selected${selectedList.length ? ` (${selectedList.length})` : ""}`}
+        </button>
+        <button
+          type="button"
+          disabled={unpublishSelectedLoading || selectedList.length === 0}
+          onClick={handleUnpublishSelected}
+          className="flex items-center gap-1.5 rounded-full border border-slate-500/50 bg-slate-500/10 px-3 py-1.5 text-xs font-bold text-slate-300 hover:bg-slate-500/20 disabled:opacity-50"
+          title={selectedList.length ? `Unpublish ${selectedList.length} selected` : "Select rows to enable"}
+        >
+          <span className="material-symbols-outlined text-sm">block</span>
+          {unpublishSelectedLoading ? "Unpublishing…" : `Unpublish selected${selectedList.length ? ` (${selectedList.length})` : ""}`}
+        </button>
+        <button
+          type="button"
           disabled={deleteByDateLoading || !dateFilter}
           onClick={handleDeleteByDate}
           className="flex items-center gap-1.5 rounded-full border border-orange-500/50 bg-orange-500/10 px-3 py-1.5 text-xs font-bold text-orange-400 hover:bg-orange-500/20 disabled:opacity-50"
@@ -286,6 +376,16 @@ export default function HoroscopesPage() {
         >
           <span className="material-symbols-outlined text-sm">delete_forever</span>
           {deleteAllLoading ? "Deleting…" : "Delete all"}
+        </button>
+        <button
+          type="button"
+          disabled={deleteSelectedLoading || selectedList.length === 0}
+          onClick={handleDeleteSelected}
+          className="flex items-center gap-1.5 rounded-full border border-red-500/50 bg-red-500/10 px-3 py-1.5 text-xs font-bold text-red-400 hover:bg-red-500/20 disabled:opacity-50"
+          title={selectedList.length ? `Delete ${selectedList.length} selected` : "Select rows to enable"}
+        >
+          <span className="material-symbols-outlined text-sm">delete</span>
+          {deleteSelectedLoading ? "Deleting…" : `Delete selected${selectedList.length ? ` (${selectedList.length})` : ""}`}
         </button>
       </div>
 
@@ -309,6 +409,16 @@ export default function HoroscopesPage() {
               <table className="w-full border-collapse text-left text-sm">
                 <thead>
                   <tr className="border-b border-purple-900/60 bg-purple-950/60 text-xs font-bold uppercase tracking-wider text-slate-400">
+                    <th className="px-6 py-4">
+                      <label className="inline-flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          checked={allSelected}
+                          onChange={toggleSelectAll}
+                        />
+                        <span className="hidden md:inline">Select</span>
+                      </label>
+                    </th>
                     <th className="px-6 py-4">Date</th>
                     <th className="px-6 py-4">Zodiac Sign</th>
                     <th className="px-6 py-4">Title</th>
@@ -323,6 +433,13 @@ export default function HoroscopesPage() {
                       key={h.id}
                       className="transition-colors hover:bg-purple-900/30"
                     >
+                      <td className="whitespace-nowrap px-6 py-4">
+                        <input
+                          type="checkbox"
+                          checked={!!selectedIds[h.id]}
+                          onChange={() => toggleSelectOne(h.id)}
+                        />
+                      </td>
                       <td className="whitespace-nowrap px-6 py-4 text-sm">
                         {dayjs(h.date).format("MMM D, YYYY")}
                       </td>

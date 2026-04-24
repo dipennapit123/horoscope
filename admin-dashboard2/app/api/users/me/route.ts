@@ -5,8 +5,8 @@ import { handleApiError } from "@/lib/api-error";
 
 export async function GET() {
   try {
-    const clerkUserId = await getUserIdFromRequest();
-    const user = await getCurrentUser(clerkUserId);
+    const firebaseUid = await getUserIdFromRequest();
+    const user = await getCurrentUser(firebaseUid);
     if (!user) {
       return NextResponse.json(
         { success: false, error: { message: "User not found." } },
