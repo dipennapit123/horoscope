@@ -1,5 +1,4 @@
 import { headers } from "next/headers";
-import { env } from "./env";
 import { ApiError } from "./api-error";
 import { firebaseAdminAuth } from "./firebase-admin";
 

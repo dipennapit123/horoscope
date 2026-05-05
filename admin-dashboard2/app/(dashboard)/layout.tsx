@@ -11,7 +11,29 @@ type NavItem =
   | { type: "section"; key: string; label: string; icon: string; children: Array<{ key: string; href: string; label: string; icon: string }> };
 
 const navItems: NavItem[] = [
-  { type: "item", key: "dashboard", href: "/", label: "Dashboard", icon: "dashboard" },
+  {
+    type: "section",
+    key: "mobile",
+    label: "MOBILE",
+    icon: "smartphone",
+    children: [
+      { key: "dashboard-mobile", href: "/dashboard/mobile", label: "Dashboard", icon: "dashboard" },
+      { key: "users-all", href: "/users", label: "All users", icon: "person" },
+      { key: "users-daily-active", href: "/users/daily-active", label: "DAU", icon: "monitoring" },
+      { key: "dashboard-mobile-charts", href: "/dashboard/mobile/charts", label: "Charts", icon: "show_chart" },
+    ],
+  },
+  {
+    type: "section",
+    key: "portfolio",
+    label: "PORTFOLIO",
+    icon: "public",
+    children: [
+      { key: "dashboard-portfolio", href: "/dashboard/portfolio", label: "Dashboard", icon: "dashboard" },
+      { key: "dashboard-portfolio-visitors", href: "/dashboard/portfolio", label: "Visitors", icon: "groups" },
+      { key: "dashboard-portfolio-charts", href: "/dashboard/portfolio#charts", label: "Charts", icon: "show_chart" },
+    ],
+  },
   {
     type: "section",
     key: "horoscopes",
@@ -20,16 +42,6 @@ const navItems: NavItem[] = [
     children: [
       { key: "horoscopes-daily", href: "/horoscopes/daily", label: "Daily", icon: "wb_sunny" },
       { key: "horoscopes-weekly", href: "/horoscopes/weekly", label: "Weekly", icon: "date_range" },
-    ],
-  },
-  {
-    type: "section",
-    key: "users",
-    label: "USERS",
-    icon: "group",
-    children: [
-      { key: "users-all", href: "/users", label: "All users", icon: "person" },
-      { key: "users-daily-active", href: "/users/daily-active", label: "Daily active", icon: "monitoring" },
     ],
   },
   {
@@ -81,11 +93,15 @@ export default function DashboardLayout({
     return null;
   }
 
-  let activeKey = "dashboard";
+  let activeKey = "dashboard-mobile";
   if (pathname?.startsWith("/horoscopes/daily")) activeKey = "horoscopes-daily";
   else if (pathname?.startsWith("/horoscopes/weekly")) activeKey = "horoscopes-weekly";
   else if (pathname?.match(/^\/horoscopes\/[0-9a-f-]{36}$/i)) activeKey = "horoscopes-daily";
   else if (pathname === "/horoscopes") activeKey = "horoscopes-daily";
+  else if (pathname?.startsWith("/dashboard/portfolio")) activeKey = "dashboard-portfolio";
+  else if (pathname?.startsWith("/dashboard/mobile/charts")) activeKey = "dashboard-mobile-charts";
+  else if (pathname?.startsWith("/dashboard/mobile")) activeKey = "dashboard-mobile";
+  else if (pathname === "/") activeKey = "dashboard-mobile";
   else if (pathname?.startsWith("/users/daily-active")) activeKey = "users-daily-active";
   else if (pathname?.startsWith("/users")) activeKey = "users-all";
   else if (pathname?.startsWith("/notifications/pillar")) activeKey = "notifications-pillar";

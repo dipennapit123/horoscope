@@ -8,6 +8,22 @@ import { api } from "@/lib/api-client";
 
 dayjs.extend(utc);
 
+const NEPAL_TZ = "Asia/Kathmandu";
+
+function formatNepalDateTime(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  return new Intl.DateTimeFormat("en-US", {
+    timeZone: NEPAL_TZ,
+    year: "numeric",
+    month: "short",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).format(d);
+}
+
 interface DauUser {
   id: string;
   email: string;
@@ -28,7 +44,8 @@ interface Report {
 
 export default function DailyActiveUsersPage() {
   const [dateStr, setDateStr] = useState(() =>
-    dayjs.utc().format("YYYY-MM-DD")
+    // Date input is treated as Nepal calendar date in the API.
+    dayjs().format("YYYY-MM-DD")
   );
   const [page, setPage] = useState(1);
   const [report, setReport] = useState<Report | null>(null);
@@ -74,7 +91,7 @@ export default function DailyActiveUsersPage() {
             Daily active users
           </h1>
           <p className="text-xs text-muted-foreground">
-            Users who recorded at least one activity on the selected day (UTC).
+            Users who recorded at least one activity on the selected Nepal day (Asia/Kathmandu).
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
@@ -111,7 +128,7 @@ export default function DailyActiveUsersPage() {
             <p className="mt-2 text-3xl font-bold">{report?.dau ?? 0}</p>
           )}
           <p className="mt-1 text-[11px] text-slate-500">
-            Distinct users with activity · UTC date {dateStr}
+            Distinct users with activity · Nepal date {dateStr}
           </p>
         </div>
       </div>
@@ -140,7 +157,7 @@ export default function DailyActiveUsersPage() {
                     <th className="px-6 py-4">User</th>
                     <th className="px-6 py-4">Zodiac</th>
                     <th className="px-6 py-4">Events (day)</th>
-                    <th className="px-6 py-4">Last activity (UTC)</th>
+                    <th className="px-6 py-4">Last activity (Nepal)</th>
                     <th className="px-6 py-4 text-right">Actions</th>
                   </tr>
                 </thead>
@@ -161,7 +178,7 @@ export default function DailyActiveUsersPage() {
                         {u.activityCount}
                       </td>
                       <td className="whitespace-nowrap px-6 py-4 text-slate-400">
-                        {dayjs.utc(u.lastActivityAt).format("MMM D, YYYY HH:mm")}
+                        {formatNepalDateTime(u.lastActivityAt)}
                       </td>
                       <td className="px-6 py-4 text-right">
                         <Link

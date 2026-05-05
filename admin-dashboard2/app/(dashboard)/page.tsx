@@ -1,9 +1,27 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
-import Link from "next/link";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import dayjs from "dayjs";
 import { api } from "@/lib/api-client";
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  Tooltip,
+  Legend,
+} from "chart.js";
+import { Line } from "react-chartjs-2";
+
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  Tooltip,
+  Legend,
+);
 
 interface DashboardStats {
   totalHoroscopes: number;
@@ -18,6 +36,25 @@ interface UserAnalytics {
   yearly: Array<{ year: number; month: number; activeUsers: number }>;
 }
 
+type AnalyticsOverview = {
+  timezone: string;
+  portfolioEventsReady: boolean;
+  mobile: {
+    dauToday: number;
+    mau30d: number;
+    dauSeries30d: Array<{ date: string; value: number }>;
+    mauSeries12m: Array<{ monthStart: string; value: number }>;
+  };
+  portfolio: {
+    uniqueToday: number;
+    uniqueMonth: number;
+    trafficToday: number;
+    trafficMonth: number;
+    uniqueSeries30d: Array<{ date: string; value: number }>;
+    trafficSeries30d: Array<{ date: string; value: number }>;
+  };
+};
+
 interface Horoscope {
   id: string;
   zodiacSign: string;
@@ -30,26 +67,31 @@ interface Horoscope {
 export default function DashboardPage() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [analytics, setAnalytics] = useState<UserAnalytics | null>(null);
+  const [overview, setOverview] = useState<AnalyticsOverview | null>(null);
   const [recent, setRecent] = useState<Horoscope[]>([]);
   const [loaded, setLoaded] = useState(false);
-  const [todayRangeLabel, setTodayRangeLabel] = useState("");
   const [apiError, setApiError] = useState<string | null>(null);
   const mounted = useRef(true);
 
   const loadAll = useCallback(async () => {
     setApiError(null);
-    const [statsRes, analyticsRes, recentRes] = await Promise.allSettled([
-      api.get<DashboardStats>("/admin/horoscopes/dashboard/stats"),
-      api.get<UserAnalytics>("/admin/users/analytics"),
-      api.get<Horoscope[]>("/admin/horoscopes?page=1&pageSize=4"),
-    ]);
+    const [statsRes, analyticsRes, overviewRes, recentRes] =
+      await Promise.allSettled([
+        api.get<DashboardStats>("/admin/horoscopes/dashboard/stats"),
+        api.get<UserAnalytics>("/admin/users/analytics"),
+        api.get<AnalyticsOverview>("/admin/analytics/overview?days=30"),
+        api.get<Horoscope[]>("/admin/horoscopes?page=1&pageSize=4"),
+      ]);
     if (!mounted.current) return;
-    const failed = [statsRes, analyticsRes, recentRes].find((r) => r.status === "rejected");
+    const failed = [statsRes, analyticsRes, overviewRes, recentRes].find(
+      (r) => r.status === "rejected"
+    );
     if (failed && failed.status === "rejected") {
       setApiError(failed.reason?.message ?? "Failed to load dashboard data.");
     }
     if (statsRes.status === "fulfilled") setStats(statsRes.value.data);
     if (analyticsRes.status === "fulfilled") setAnalytics(analyticsRes.value.data);
+    if (overviewRes.status === "fulfilled") setOverview(overviewRes.value.data);
     if (recentRes.status === "fulfilled") {
       const list = Array.isArray(recentRes.value.data) ? recentRes.value.data : [];
       setRecent(list.slice(0, 4));
@@ -59,16 +101,93 @@ export default function DashboardPage() {
 
   useEffect(() => {
     mounted.current = true;
-    setTodayRangeLabel(
-      `${dayjs().subtract(30, "day").format("MMM D, YYYY")} - ${dayjs().format("MMM D, YYYY")}`
-    );
-    void loadAll();
+    const t = setTimeout(() => {
+      void loadAll();
+    }, 0);
     return () => {
       mounted.current = false;
+      clearTimeout(t);
     };
   }, [loadAll]);
 
   const skeleton = <div className="mt-2 h-7 w-16 rounded-2xl bg-purple-900/40 animate-pulse" />;
+  const todayRangeLabel = useMemo(
+    () =>
+      `${dayjs().subtract(30, "day").format("MMM D, YYYY")} - ${dayjs().format("MMM D, YYYY")}`,
+    []
+  );
+
+  const dauChart = useMemo(() => {
+    const pts = overview?.mobile.dauSeries30d ?? [];
+    return {
+      data: {
+        labels: pts.map((p) => dayjs(p.date).format("MMM D")),
+        datasets: [
+          {
+            label: "Mobile DAU",
+            data: pts.map((p) => p.value),
+            borderColor: "#b062ff",
+            backgroundColor: "rgba(176, 98, 255, 0.18)",
+            tension: 0.35,
+            pointRadius: 2,
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        events: ["mousemove", "mouseout", "click", "touchstart", "touchmove"],
+        interaction: { mode: "index", intersect: false },
+        plugins: {
+          legend: { display: false },
+          tooltip: { enabled: true, intersect: false, mode: "index" },
+        },
+        scales: {
+          x: { grid: { color: "rgba(148, 163, 184, 0.12)" } },
+          y: {
+            grid: { color: "rgba(148, 163, 184, 0.12)" },
+            beginAtZero: true,
+          },
+        },
+      } as const,
+    };
+  }, [overview]);
+
+  const mauChart = useMemo(() => {
+    const pts = overview?.mobile.mauSeries12m ?? [];
+    return {
+      data: {
+        labels: pts.map((p) => dayjs(p.monthStart).format("MMM YYYY")),
+        datasets: [
+          {
+            label: "Mobile MAU",
+            data: pts.map((p) => p.value),
+            borderColor: "#7f13ec",
+            backgroundColor: "rgba(127, 19, 236, 0.16)",
+            tension: 0.25,
+            pointRadius: 2,
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        events: ["mousemove", "mouseout", "click", "touchstart", "touchmove"],
+        interaction: { mode: "index", intersect: false },
+        plugins: {
+          legend: { display: false },
+          tooltip: { enabled: true, intersect: false, mode: "index" },
+        },
+        scales: {
+          x: { grid: { color: "rgba(148, 163, 184, 0.12)" } },
+          y: {
+            grid: { color: "rgba(148, 163, 184, 0.12)" },
+            beginAtZero: true,
+          },
+        },
+      } as const,
+    };
+  }, [overview]);
 
   return (
     <div className="space-y-8">
@@ -105,8 +224,8 @@ export default function DashboardPage() {
         <StatCard icon="groups" label="Monthly active users" badge="30 days">
           {!loaded ? skeleton : <p className="mt-2 text-2xl font-semibold">{analytics?.mau ?? 0}</p>}
         </StatCard>
-        <StatCard icon="verified_user" label="Total onboarded users">
-          {!loaded ? skeleton : <p className="mt-2 text-2xl font-semibold">{stats?.totalUsers ?? 0}</p>}
+        <StatCard icon="public" label="Portfolio unique visitors" badge="Today (Nepal)">
+          {!loaded ? skeleton : <p className="mt-2 text-2xl font-semibold">{overview?.portfolio.uniqueToday ?? 0}</p>}
         </StatCard>
         <StatCard icon="auto_stories" label="Published horoscopes" badge="Today">
           {!loaded ? skeleton : (
@@ -123,38 +242,18 @@ export default function DashboardPage() {
       <section className="grid grid-cols-1 gap-6 xl:grid-cols-[2fr,minmax(0,1.3fr)]">
         <div className="rounded-2xl border border-purple-900/40 bg-gradient-to-b from-[#100720] to-[#050316] p-6">
           <div className="mb-6">
-            <h2 className="text-lg font-semibold">DAU / MAU growth</h2>
-            <p className="text-xs text-muted-foreground">
-              User retention trend over the last month.
-            </p>
+            <h2 className="text-lg font-semibold">Mobile DAU (Nepal time)</h2>
+            <p className="text-xs text-muted-foreground">Last 30 Nepal-days.</p>
           </div>
           <div className="relative h-64 w-full">
-            <svg viewBox="0 0 1000 300" className="h-full w-full" preserveAspectRatio="none">
-              <line x1="0" x2="1000" y1="60" y2="60" className="text-purple-900/40" stroke="currentColor" strokeWidth="1" />
-              <line x1="0" x2="1000" y1="150" y2="150" className="text-purple-900/40" stroke="currentColor" strokeWidth="1" />
-              <line x1="0" x2="1000" y1="240" y2="240" className="text-purple-900/40" stroke="currentColor" strokeWidth="1" />
-              <defs>
-                <linearGradient id="dashChartStroke" x1="0%" y1="0%" x2="100%" y2="0%">
-                  <stop offset="0%" stopColor="#7f13ec" />
-                  <stop offset="100%" stopColor="#b062ff" />
-                </linearGradient>
-                <linearGradient id="dashChartFill" x1="0%" y1="0%" x2="0%" y2="100%">
-                  <stop offset="0%" stopColor="#7f13ec" />
-                  <stop offset="100%" stopColor="transparent" />
-                </linearGradient>
-              </defs>
-              <path
-                d="M0,240 Q80,210 160,220 T320,170 T480,140 T640,150 T760,100 T880,120 T1000,80"
-                fill="none" stroke="url(#dashChartStroke)" strokeWidth="4" strokeLinecap="round"
-              />
-              <path
-                d="M0,240 Q80,210 160,220 T320,170 T480,140 T640,150 T760,100 T880,120 T1000,80 V300 H0 Z"
-                fill="url(#dashChartFill)" opacity="0.4"
-              />
-            </svg>
-            <div className="mt-3 flex justify-between px-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-              <span>Day 1</span><span>Day 7</span><span>Day 14</span><span>Day 21</span><span>Day 30</span>
-            </div>
+            {!loaded ? (
+              <div className="h-full w-full animate-pulse rounded-xl bg-purple-900/30" />
+            ) : (
+              <Line data={dauChart.data} options={dauChart.options} />
+            )}
+          </div>
+          <div className="mt-2 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+            Source: Mobile app • TZ: {overview?.timezone ?? "Asia/Kathmandu"}
           </div>
         </div>
 
@@ -196,6 +295,20 @@ export default function DashboardPage() {
                 ))}
               </tbody>
             </table>
+          )}
+        </div>
+      </section>
+
+      <section className="rounded-2xl border border-purple-900/40 bg-gradient-to-b from-[#0b0515] to-[#050316] p-6">
+        <div className="mb-6">
+          <h2 className="text-lg font-semibold">Mobile MAU (Nepal time)</h2>
+          <p className="text-xs text-muted-foreground">Last 12 months (Nepal-month buckets).</p>
+        </div>
+        <div className="relative h-72 w-full">
+          {!loaded ? (
+            <div className="h-full w-full animate-pulse rounded-xl bg-purple-900/30" />
+          ) : (
+            <Line data={mauChart.data} options={mauChart.options} />
           )}
         </div>
       </section>

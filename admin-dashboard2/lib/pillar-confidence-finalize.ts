@@ -33,9 +33,9 @@ export function ensureMinimumPillarSpread(
   salt: string,
   minSpread = 9,
 ): { love: number; wealth: number; health: number } {
-  let l = clampHoroscopeConfidence(love);
-  let w = clampHoroscopeConfidence(wealth);
-  let h = clampHoroscopeConfidence(health);
+  const l = clampHoroscopeConfidence(love);
+  const w = clampHoroscopeConfidence(wealth);
+  const h = clampHoroscopeConfidence(health);
   if (Math.max(l, w, h) - Math.min(l, w, h) >= minSpread) {
     return { love: l, wealth: w, health: h };
   }
@@ -65,9 +65,9 @@ export function finalizePillarConfidences(params: {
   /** Zodiac + date + snippet for stable spread when the model is flat. */
   salt: string;
 }): { loveConfidence: number; wealthConfidence: number; healthConfidence: number } {
-  let l = clampHoroscopeConfidence(params.love + keywordToneDelta(params.loveText));
-  let w = clampHoroscopeConfidence(params.wealth + keywordToneDelta(params.wealthText));
-  let h = clampHoroscopeConfidence(params.health + keywordToneDelta(params.healthText));
+  const l = clampHoroscopeConfidence(params.love + keywordToneDelta(params.loveText));
+  const w = clampHoroscopeConfidence(params.wealth + keywordToneDelta(params.wealthText));
+  const h = clampHoroscopeConfidence(params.health + keywordToneDelta(params.healthText));
   const spread = ensureMinimumPillarSpread(l, w, h, params.salt);
   return {
     loveConfidence: spread.love,

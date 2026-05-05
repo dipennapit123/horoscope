@@ -146,3 +146,41 @@ CREATE TABLE IF NOT EXISTS "PushDevice" (
 );
 
 CREATE INDEX IF NOT EXISTS "PushDevice_firebaseUid_idx" ON "PushDevice" ("firebaseUid");
+
+-- Portfolio visits (anonymous, no login). Buckets are based on Nepal local day.
+CREATE TABLE IF NOT EXISTS "PortfolioVisit" (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  "nepalDay" DATE NOT NULL,
+  "ipHash" TEXT NOT NULL,
+  path TEXT,
+  "userAgent" TEXT,
+  "createdAt" TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS "PortfolioVisit_nepalDay_ipHash_uq"
+  ON "PortfolioVisit" ("nepalDay", "ipHash");
+
+CREATE INDEX IF NOT EXISTS "PortfolioVisit_nepalDay_idx"
+  ON "PortfolioVisit" ("nepalDay");
+
+-- Portfolio analytics events (anonymous, no login).
+CREATE TABLE IF NOT EXISTS "PortfolioEvent" (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  "visitorId" TEXT NOT NULL,
+  "sessionId" TEXT NOT NULL,
+  "eventName" TEXT NOT NULL,
+  path TEXT,
+  referrer TEXT,
+  "userAgent" TEXT,
+  "nepalDay" DATE NOT NULL,
+  "nepalMonth" DATE NOT NULL,
+  "createdAt" TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS "PortfolioEvent_nepalDay_idx" ON "PortfolioEvent" ("nepalDay");
+CREATE INDEX IF NOT EXISTS "PortfolioEvent_nepalDay_event_idx" ON "PortfolioEvent" ("nepalDay", "eventName");
+CREATE INDEX IF NOT EXISTS "PortfolioEvent_nepalDay_visitor_idx" ON "PortfolioEvent" ("nepalDay", "visitorId");
+
+CREATE INDEX IF NOT EXISTS "PortfolioEvent_nepalMonth_idx" ON "PortfolioEvent" ("nepalMonth");
+CREATE INDEX IF NOT EXISTS "PortfolioEvent_nepalMonth_event_idx" ON "PortfolioEvent" ("nepalMonth", "eventName");
+CREATE INDEX IF NOT EXISTS "PortfolioEvent_nepalMonth_visitor_idx" ON "PortfolioEvent" ("nepalMonth", "visitorId");

@@ -15,6 +15,8 @@ export async function GET(request: NextRequest) {
   try {
     await getAdminFromRequest();
     const { searchParams } = new URL(request.url);
+    // Treat this date param as a *Nepal calendar date* (YYYY-MM-DD).
+    // We keep it as a Date at UTC midnight only as a carrier for y-m-d.
     const date = parseUtcDateParam(searchParams.get("date"));
     const page = parseInt(searchParams.get("page") ?? "1", 10) || 1;
     const pageSize = parseInt(searchParams.get("pageSize") ?? "25", 10) || 25;

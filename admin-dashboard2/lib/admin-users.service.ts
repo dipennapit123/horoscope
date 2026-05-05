@@ -1,29 +1,7 @@
 import { query } from "./db";
 import type { UserActivityRow } from "./types";
 
-function startOfDay(d: Date): Date {
-  const out = new Date(d);
-  out.setUTCHours(0, 0, 0, 0);
-  return out;
-}
-function endOfDay(d: Date): Date {
-  const out = new Date(d);
-  out.setUTCHours(23, 59, 59, 999);
-  return out;
-}
-function startOfMonth(d: Date): Date {
-  const out = new Date(d);
-  out.setUTCDate(1);
-  out.setUTCHours(0, 0, 0, 0);
-  return out;
-}
-function endOfMonth(d: Date): Date {
-  const out = new Date(d);
-  out.setUTCMonth(out.getUTCMonth() + 1);
-  out.setUTCDate(0);
-  out.setUTCHours(23, 59, 59, 999);
-  return out;
-}
+const NEPAL_TZ = "Asia/Kathmandu";
 
 export async function listUsers(params?: { page?: number; pageSize?: number }) {
   const page = params?.page && params.page > 0 ? params.page : 1;
@@ -68,46 +46,47 @@ export async function listUsers(params?: { page?: number; pageSize?: number }) {
 }
 
 export async function getUserAnalytics() {
-  const now = new Date();
-  const todayStart = startOfDay(now);
-  const todayEnd = endOfDay(now);
-  const monthStart = startOfMonth(now);
-  const monthEnd = endOfMonth(now);
-  const [dauRows, mauRows, yearlyRows] = await Promise.all([
-    query<{ userId: string }>(
-      `SELECT "userId" FROM "UserActivity"
-       WHERE "createdAt" >= $1 AND "createdAt" <= $2`,
-      [todayStart.toISOString(), todayEnd.toISOString()]
+  // Mobile DAU/MAU are based on Nepal local day boundaries.
+  // We scope to mobile activity by requiring platform to be present.
+  const [dauRes, mauRes, monthlyRes] = await Promise.all([
+    query<{ n: string }>(
+      `SELECT COUNT(DISTINCT "userId")::text AS n
+       FROM "UserActivity"
+       WHERE COALESCE(platform, '') <> ''
+         AND ("createdAt" AT TIME ZONE $1)::date = (now() AT TIME ZONE $1)::date`,
+      [NEPAL_TZ],
     ),
-    query<{ userId: string }>(
-      `SELECT "userId" FROM "UserActivity"
-       WHERE "createdAt" >= $1 AND "createdAt" <= $2`,
-      [monthStart.toISOString(), monthEnd.toISOString()]
+    query<{ n: string }>(
+      `SELECT COUNT(DISTINCT "userId")::text AS n
+       FROM "UserActivity"
+       WHERE COALESCE(platform, '') <> ''
+         AND ("createdAt" AT TIME ZONE $1)::date >= ((now() AT TIME ZONE $1)::date - 29)
+         AND ("createdAt" AT TIME ZONE $1)::date <= (now() AT TIME ZONE $1)::date`,
+      [NEPAL_TZ],
     ),
-    query<{ userId: string; createdAt: Date }>(
-      `SELECT "userId", "createdAt" FROM "UserActivity"
-       WHERE "createdAt" >= $1 AND "createdAt" <= $2`,
-      [new Date(now.getUTCFullYear(), 0, 1).toISOString(), now.toISOString()]
+    query<{ monthStart: string; n: string }>(
+      `SELECT date_trunc('month', "createdAt" AT TIME ZONE $1)::date::text AS "monthStart",
+              COUNT(DISTINCT "userId")::text AS n
+       FROM "UserActivity"
+       WHERE COALESCE(platform, '') <> ''
+         AND "createdAt" >= (now() - interval '400 days')
+       GROUP BY 1
+       ORDER BY 1 ASC`,
+      [NEPAL_TZ],
     ),
   ]);
-  const dau = new Set(dauRows.rows.map((r) => r.userId)).size;
-  const mau = new Set(mauRows.rows.map((r) => r.userId)).size;
-  const monthlyActiveUsers: { year: number; month: number; activeUsers: number }[] = [];
-  const seen = new Map<string, Set<string>>();
-  yearlyRows.rows.forEach((r) => {
-    const d = new Date(r.createdAt);
-    const key = `${d.getUTCFullYear()}-${d.getUTCMonth()}`;
-    if (!seen.has(key)) seen.set(key, new Set());
-    seen.get(key)!.add(r.userId);
+
+  const dau = parseInt(dauRes.rows[0]?.n ?? "0", 10);
+  const mau = parseInt(mauRes.rows[0]?.n ?? "0", 10);
+  const yearly = monthlyRes.rows.map((r) => {
+    const d = new Date(`${r.monthStart}T00:00:00.000Z`);
+    return {
+      year: d.getUTCFullYear(),
+      month: d.getUTCMonth() + 1,
+      activeUsers: parseInt(r.n ?? "0", 10),
+    };
   });
-  seen.forEach((userIds, key) => {
-    const [y, m] = key.split("-").map(Number);
-    monthlyActiveUsers.push({ year: y, month: m + 1, activeUsers: userIds.size });
-  });
-  monthlyActiveUsers.sort((a, b) =>
-    a.year !== b.year ? a.year - b.year : a.month - b.month
-  );
-  return { dau, mau, yearly: monthlyActiveUsers };
+  return { dau, mau, yearly };
 }
 
 export type DailyActiveUsersReport = {
@@ -126,29 +105,26 @@ export type DailyActiveUsersReport = {
   pageSize: number;
 };
 
-/** Users with ≥1 UserActivity row on the given UTC calendar day, paginated. */
+/** Users with ≥1 UserActivity row on the given Nepal calendar day, paginated. */
 export async function getDailyActiveUsersReport(params: {
   date: Date;
   page: number;
   pageSize: number;
 }): Promise<DailyActiveUsersReport> {
-  const dayStart = startOfDay(params.date);
-  const dayEnd = endOfDay(params.date);
   const page = params.page > 0 ? params.page : 1;
   const pageSize =
     params.pageSize > 0 ? Math.min(params.pageSize, 100) : 25;
   const skip = (page - 1) * pageSize;
-  const startIso = dayStart.toISOString();
-  const endIso = dayEnd.toISOString();
+  const dateStr = params.date.toISOString().slice(0, 10);
 
   const [countResult, rowsResult] = await Promise.all([
     query<{ n: string }>(
       `SELECT COUNT(*)::text AS n FROM (
          SELECT a."userId" FROM "UserActivity" a
-         WHERE a."createdAt" >= $1 AND a."createdAt" <= $2
+         WHERE (a."createdAt" AT TIME ZONE $1)::date = $2::date
          GROUP BY a."userId"
        ) t`,
-      [startIso, endIso],
+      [NEPAL_TZ, dateStr],
     ),
     query<{
       id: string;
@@ -163,16 +139,15 @@ export async function getDailyActiveUsersReport(params: {
               MAX(a."createdAt") AS last_activity
        FROM "UserActivity" a
        INNER JOIN "User" u ON u.id = a."userId"
-       WHERE a."createdAt" >= $1 AND a."createdAt" <= $2
+       WHERE (a."createdAt" AT TIME ZONE $1)::date = $2::date
        GROUP BY u.id, u.email, u."fullName", u."zodiacSign"
        ORDER BY MAX(a."createdAt") DESC
        LIMIT $3 OFFSET $4`,
-      [startIso, endIso, pageSize, skip],
+      [NEPAL_TZ, dateStr, pageSize, skip],
     ),
   ]);
 
   const total = parseInt(countResult.rows[0]?.n ?? "0", 10);
-  const dateStr = params.date.toISOString().slice(0, 10);
 
   return {
     date: dateStr,
