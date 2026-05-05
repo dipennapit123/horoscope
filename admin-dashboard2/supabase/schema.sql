@@ -170,7 +170,12 @@ CREATE TABLE IF NOT EXISTS "PortfolioEvent" (
   "sessionId" TEXT NOT NULL,
   "eventName" TEXT NOT NULL,
   path TEXT,
+  url TEXT,
   referrer TEXT,
+  "utmSource" TEXT,
+  "utmMedium" TEXT,
+  "utmCampaign" TEXT,
+  "utmContent" TEXT,
   "userAgent" TEXT,
   "nepalDay" DATE NOT NULL,
   "nepalMonth" DATE NOT NULL,
@@ -180,7 +185,11 @@ CREATE TABLE IF NOT EXISTS "PortfolioEvent" (
 CREATE INDEX IF NOT EXISTS "PortfolioEvent_nepalDay_idx" ON "PortfolioEvent" ("nepalDay");
 CREATE INDEX IF NOT EXISTS "PortfolioEvent_nepalDay_event_idx" ON "PortfolioEvent" ("nepalDay", "eventName");
 CREATE INDEX IF NOT EXISTS "PortfolioEvent_nepalDay_visitor_idx" ON "PortfolioEvent" ("nepalDay", "visitorId");
+CREATE INDEX IF NOT EXISTS "PortfolioEvent_nepalDay_path_idx" ON "PortfolioEvent" ("nepalDay", path);
+CREATE INDEX IF NOT EXISTS "PortfolioEvent_nepalDay_utmSource_idx" ON "PortfolioEvent" ("nepalDay", "utmSource");
 
 CREATE INDEX IF NOT EXISTS "PortfolioEvent_nepalMonth_idx" ON "PortfolioEvent" ("nepalMonth");
 CREATE INDEX IF NOT EXISTS "PortfolioEvent_nepalMonth_event_idx" ON "PortfolioEvent" ("nepalMonth", "eventName");
 CREATE INDEX IF NOT EXISTS "PortfolioEvent_nepalMonth_visitor_idx" ON "PortfolioEvent" ("nepalMonth", "visitorId");
+CREATE INDEX IF NOT EXISTS "PortfolioEvent_nepalMonth_path_idx" ON "PortfolioEvent" ("nepalMonth", path);
+CREATE INDEX IF NOT EXISTS "PortfolioEvent_nepalMonth_utmCampaign_idx" ON "PortfolioEvent" ("nepalMonth", "utmCampaign");

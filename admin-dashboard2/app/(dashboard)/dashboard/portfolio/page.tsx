@@ -33,8 +33,65 @@ type PortfolioOverview = {
     trafficMonth: number;
     uniqueSeries30d: Array<{ date: string; value: number }>;
     trafficSeries30d: Array<{ date: string; value: number }>;
+    topLinksToday: Array<{ label: string; pageviews: number; uniqueVisitors: number }>;
+    topLinksMonth: Array<{ label: string; pageviews: number; uniqueVisitors: number }>;
+    topSourcesToday: Array<{ label: string; pageviews: number; uniqueVisitors: number }>;
+    topSourcesMonth: Array<{ label: string; pageviews: number; uniqueVisitors: number }>;
+    topCampaignsMonth: Array<{ label: string; pageviews: number; uniqueVisitors: number }>;
   };
 };
+
+function TrafficTable({
+  title,
+  rows,
+  emptyLabel,
+}: {
+  title: string;
+  rows: Array<{ label: string; pageviews: number; uniqueVisitors: number }>;
+  emptyLabel: string;
+}) {
+  return (
+    <section className="rounded-2xl border border-purple-900/40 bg-gradient-to-b from-[#0b0515] to-[#050316] p-6">
+      <div className="mb-4">
+        <h2 className="text-lg font-semibold">{title}</h2>
+        <p className="text-xs text-muted-foreground">Nepal time bucketing.</p>
+      </div>
+      {rows.length === 0 ? (
+        <div className="rounded-xl border border-purple-900/40 bg-purple-950/20 px-4 py-3 text-sm text-muted-foreground">
+          {emptyLabel}
+        </div>
+      ) : (
+        <div className="overflow-hidden rounded-xl border border-purple-900/40">
+          <table className="w-full text-sm">
+            <thead className="bg-purple-950/40 text-muted-foreground">
+              <tr>
+                <th className="px-3 py-2 text-left font-medium">Link / Source</th>
+                <th className="px-3 py-2 text-right font-medium">Pageviews</th>
+                <th className="px-3 py-2 text-right font-medium">Unique</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r, idx) => (
+                <tr
+                  key={`${r.label}-${idx}`}
+                  className="border-t border-purple-900/30 bg-black/10"
+                >
+                  <td className="max-w-[0] px-3 py-2">
+                    <div className="truncate font-medium text-on-surface" title={r.label}>
+                      {r.label}
+                    </div>
+                  </td>
+                  <td className="px-3 py-2 text-right tabular-nums">{r.pageviews}</td>
+                  <td className="px-3 py-2 text-right tabular-nums">{r.uniqueVisitors}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </section>
+  );
+}
 
 export default function PortfolioDashboardPage() {
   const [data, setData] = useState<PortfolioOverview | null>(null);
@@ -184,6 +241,38 @@ export default function PortfolioDashboardPage() {
           )}
         </div>
       </section>
+
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <TrafficTable
+          title="Most visited links (today)"
+          rows={data?.portfolio.topLinksToday ?? []}
+          emptyLabel="No pageview data yet."
+        />
+        <TrafficTable
+          title="Most visited links (this month)"
+          rows={data?.portfolio.topLinksMonth ?? []}
+          emptyLabel="No pageview data yet."
+        />
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <TrafficTable
+          title="Top traffic sources (today)"
+          rows={data?.portfolio.topSourcesToday ?? []}
+          emptyLabel="No referrer data yet (direct traffic will show as (direct))."
+        />
+        <TrafficTable
+          title="Top traffic sources (this month)"
+          rows={data?.portfolio.topSourcesMonth ?? []}
+          emptyLabel="No referrer data yet (direct traffic will show as (direct))."
+        />
+      </div>
+
+      <TrafficTable
+        title="Top campaigns (this month)"
+        rows={data?.portfolio.topCampaignsMonth ?? []}
+        emptyLabel="No UTM campaign data yet. Add ?utm_source=...&utm_campaign=... to your marketing links."
+      />
     </div>
   );
 }
