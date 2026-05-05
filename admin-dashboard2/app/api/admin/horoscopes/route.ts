@@ -26,6 +26,7 @@ const baseSchema = z.object({
   loveActionLabel: z.string().optional(),
   healthActionLabel: z.string().optional(),
   weeklyOutlook: z.string().optional(),
+  moodBoard: z.any().optional(),
   isPublished: z.boolean().optional(),
 });
 
@@ -85,6 +86,7 @@ export async function POST(request: NextRequest) {
       loveActionLabel: d.loveActionLabel ?? null,
       healthActionLabel: d.healthActionLabel ?? null,
       weeklyOutlook: d.weeklyOutlook ?? null,
+      moodBoard: d.moodBoard ?? null,
       isPublished: d.isPublished ?? false,
     });
     return NextResponse.json({ success: true, data: created }, { status: 201 });

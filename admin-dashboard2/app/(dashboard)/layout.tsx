@@ -12,8 +12,16 @@ type NavItem =
 
 const navItems: NavItem[] = [
   { type: "item", key: "dashboard", href: "/", label: "Dashboard", icon: "dashboard" },
-  { type: "item", key: "horoscopes", href: "/horoscopes", label: "Horoscopes", icon: "nights_stay" },
-  { type: "item", key: "generate", href: "/generate", label: "Generate", icon: "auto_fix_high" },
+  {
+    type: "section",
+    key: "horoscopes",
+    label: "HOROSCOPES",
+    icon: "nights_stay",
+    children: [
+      { key: "horoscopes-daily", href: "/horoscopes/daily", label: "Daily", icon: "wb_sunny" },
+      { key: "horoscopes-weekly", href: "/horoscopes/weekly", label: "Weekly", icon: "date_range" },
+    ],
+  },
   {
     type: "section",
     key: "users",
@@ -74,8 +82,10 @@ export default function DashboardLayout({
   }
 
   let activeKey = "dashboard";
-  if (pathname?.startsWith("/horoscopes")) activeKey = "horoscopes";
-  else if (pathname?.startsWith("/generate")) activeKey = "generate";
+  if (pathname?.startsWith("/horoscopes/daily")) activeKey = "horoscopes-daily";
+  else if (pathname?.startsWith("/horoscopes/weekly")) activeKey = "horoscopes-weekly";
+  else if (pathname?.match(/^\/horoscopes\/[0-9a-f-]{36}$/i)) activeKey = "horoscopes-daily";
+  else if (pathname === "/horoscopes") activeKey = "horoscopes-daily";
   else if (pathname?.startsWith("/users/daily-active")) activeKey = "users-daily-active";
   else if (pathname?.startsWith("/users")) activeKey = "users-all";
   else if (pathname?.startsWith("/notifications/pillar")) activeKey = "notifications-pillar";
@@ -107,11 +117,10 @@ export default function DashboardLayout({
                   )}
                   <Link
                     href={item.href}
-                    className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors ${
-                      activeKey === item.key
+                    className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors ${activeKey === item.key
                         ? "border border-[#7f13ec]/30 bg-[#7f13ec]/15 text-[#7f13ec]"
                         : "border border-transparent text-slate-400 hover:bg-purple-900/25 hover:text-purple-200"
-                    }`}
+                      }`}
                   >
                     <span className="material-symbols-outlined text-[20px]">
                       {item.icon}
@@ -132,11 +141,10 @@ export default function DashboardLayout({
                     <Link
                       key={c.key}
                       href={c.href}
-                      className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors ${
-                        activeKey === c.key
+                      className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors ${activeKey === c.key
                           ? "border border-[#7f13ec]/30 bg-[#7f13ec]/15 text-[#7f13ec]"
                           : "border border-transparent text-slate-400 hover:bg-purple-900/25 hover:text-purple-200"
-                      }`}
+                        }`}
                     >
                       <span className="material-symbols-outlined text-[20px]">
                         {c.icon}

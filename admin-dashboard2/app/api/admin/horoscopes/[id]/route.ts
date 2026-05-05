@@ -7,6 +7,7 @@ import {
   deleteHoroscope,
 } from "@/lib/admin-horoscope.service";
 import type { ZodiacSign } from "@/lib/types";
+import type { HoroscopeMoodBoard } from "@/lib/mood-board";
 import { handleApiError } from "@/lib/api-error";
 
 export async function GET(
@@ -51,6 +52,7 @@ const partialSchema = z.object({
   loveActionLabel: z.string().optional(),
   healthActionLabel: z.string().optional(),
   weeklyOutlook: z.string().optional(),
+  moodBoard: z.any().optional(),
   isPublished: z.boolean().optional(),
 }).partial();
 
@@ -70,8 +72,10 @@ export async function PATCH(
       );
     }
     const payload = parsed.data;
+    const { moodBoard, ...rest } = payload;
     const updated = await updateHoroscope(id, {
-      ...payload,
+      ...rest,
+      moodBoard: moodBoard as HoroscopeMoodBoard | null | undefined,
       date: payload.date ? new Date(payload.date) : undefined,
       zodiacSign: payload.zodiacSign as ZodiacSign | undefined,
     });

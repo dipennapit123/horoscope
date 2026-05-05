@@ -27,7 +27,10 @@ Single Next.js app with **backend API** and **admin frontend** in one project. N
   - `GET/POST /api/admin/horoscopes` – list, create
   - `GET/PATCH/DELETE /api/admin/horoscopes/[id]` – get, update, delete
   - `PATCH /api/admin/horoscopes/[id]/publish` – publish/unpublish
-  - `POST /api/admin/horoscopes/generate` – AI generate (uses GROQ if `GROQ_API_KEY` set)
+  - `POST /api/admin/horoscopes/generate` – AI daily generate (uses GROQ if `GROQ_API_KEY` set)
+  - `GET/PATCH/DELETE /api/admin/weekly-horoscopes/[id]` – weekly row; `PATCH …/publish` – publish
+  - `POST /api/admin/weekly-horoscopes/generate` – AI weekly (one row per sign per UTC week, Monday start)
+  - `GET /api/public/horoscopes/weekly?sign=` – published weekly for current UTC week
   - `GET /api/admin/horoscopes/dashboard/stats` – dashboard stats
   - `GET /api/admin/users` – list users
   - `GET /api/admin/users/analytics` – DAU/MAU

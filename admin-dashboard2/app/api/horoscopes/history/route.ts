@@ -4,6 +4,7 @@ import { getCurrentUser } from "@/lib/user.service";
 import { getHoroscopeHistoryForZodiac } from "@/lib/horoscope-user.service";
 import type { ZodiacSign } from "@/lib/types";
 import { handleApiError } from "@/lib/api-error";
+import { parseMoodBoardLenient, rawMoodBoardFromRow } from "@/lib/mood-board";
 
 /** Map DB row to the shape expected by the mobile app (date as ISO string). */
 function toMobileHoroscope(row: Record<string, unknown>) {
@@ -24,6 +25,7 @@ function toMobileHoroscope(row: Record<string, unknown>) {
     loveActionLabel: row.loveActionLabel ?? null,
     healthActionLabel: row.healthActionLabel ?? null,
     weeklyOutlook: row.weeklyOutlook ?? null,
+    moodBoard: parseMoodBoardLenient(rawMoodBoardFromRow(row)),
   };
 }
 

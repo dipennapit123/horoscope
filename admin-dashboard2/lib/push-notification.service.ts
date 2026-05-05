@@ -76,22 +76,55 @@ function buildExpoPayload(m: ExpoMessage): Record<string, unknown> {
 }
 
 /**
+ * Errors from Expo that mean "this token is permanently invalid" — the device
+ * is uninstalled, reinstalled, or the push credentials changed. We clear these
+ * so retries don't keep failing.
+ */
+const FATAL_TOKEN_ERRORS = new Set([
+  "DeviceNotRegistered",
+  "InvalidCredentials",
+  "MismatchSenderId",
+]);
+
+/** Remove a known-dead token from both User and PushDevice rows. */
+async function purgeDeadToken(token: string): Promise<void> {
+  try {
+    await query(
+      `UPDATE "User" SET "expoPushToken" = NULL WHERE "expoPushToken" = $1`,
+      [token],
+    );
+  } catch {
+    // ignore; best-effort cleanup
+  }
+  try {
+    await query(`DELETE FROM "PushDevice" WHERE "expoPushToken" = $1`, [token]);
+  } catch {
+    // ignore
+  }
+}
+
+/**
  * Sends via Expo Push API and parses push tickets. HTTP 200 can still include
  * per-message errors (e.g. DeviceNotRegistered) — those are returned, not thrown.
+ * For fatal token errors, the offending token is cleared from the database so
+ * future sends don't keep hitting the same dead device.
  */
 async function sendExpoPush(messages: ExpoMessage[]): Promise<{
   ticketsAccepted: number;
   ticketErrors: string[];
+  purgedTokens: number;
 }> {
   if (messages.length === 0) {
-    return { ticketsAccepted: 0, ticketErrors: [] };
+    return { ticketsAccepted: 0, ticketErrors: [], purgedTokens: 0 };
   }
   const ticketErrors: string[] = [];
+  const deadTokens = new Set<string>();
   let ticketsAccepted = 0;
   const CHUNK = 80;
   const payload = messages.map((m) => buildExpoPayload(m));
 
   for (let i = 0; i < payload.length; i += CHUNK) {
+    const chunkMessages = messages.slice(i, i + CHUNK);
     const chunk = payload.slice(i, i + CHUNK);
     const res = await fetch("https://exp.host/--/api/v2/push/send", {
       method: "POST",
@@ -130,18 +163,34 @@ async function sendExpoPush(messages: ExpoMessage[]): Promise<{
         ? [raw]
         : [];
 
-    for (const t of tickets) {
+    // Tickets come back in the same order as the messages we sent, so we can
+    // pair each ticket with its `to` token to know which to purge.
+    for (let j = 0; j < tickets.length; j++) {
+      const t = tickets[j];
       if (t.status === "ok") {
         ticketsAccepted += 1;
       } else {
         const code = t.details?.error;
         const msg = t.message ?? code ?? "Unknown ticket error";
         ticketErrors.push(code ? `${code}: ${msg}` : msg);
+        if (code && FATAL_TOKEN_ERRORS.has(code)) {
+          const toToken = chunkMessages[j]?.to;
+          if (toToken) deadTokens.add(toToken);
+        }
       }
     }
   }
 
-  return { ticketsAccepted, ticketErrors };
+  // Purge after parsing so we don't block the main send loop.
+  for (const tok of deadTokens) {
+    await purgeDeadToken(tok);
+  }
+
+  return {
+    ticketsAccepted,
+    ticketErrors,
+    purgedTokens: deadTokens.size,
+  };
 }
 
 export async function getNotificationCampaignState() {
@@ -206,6 +255,7 @@ export async function sendHoroscopePillarNotifications(): Promise<{
   nextPillar: Pillar;
   expoTicketsAccepted: number;
   expoTicketErrors: string[];
+  purgedTokens: number;
 }> {
   const row = await ensureCampaignRow();
   const pillar = row.nextPillar;
@@ -255,7 +305,8 @@ export async function sendHoroscopePillarNotifications(): Promise<{
     });
   }
 
-  const { ticketsAccepted, ticketErrors } = await sendExpoPush(messages);
+  const { ticketsAccepted, ticketErrors, purgedTokens } =
+    await sendExpoPush(messages);
 
   const advanced = nextPillar(pillar);
   await query(
@@ -269,6 +320,7 @@ export async function sendHoroscopePillarNotifications(): Promise<{
     nextPillar: advanced,
     expoTicketsAccepted: ticketsAccepted,
     expoTicketErrors: ticketErrors,
+    purgedTokens,
   };
 }
 
@@ -278,6 +330,7 @@ export async function sendMotivationalQuoteNotifications(params?: {
   sent: number;
   expoTicketsAccepted: number;
   expoTicketErrors: string[];
+  purgedTokens: number;
 }> {
   let body: string | null = null;
 
@@ -315,10 +368,12 @@ export async function sendMotivationalQuoteNotifications(params?: {
     data: { type: "motivational_quote" },
   }));
 
-  const { ticketsAccepted, ticketErrors } = await sendExpoPush(messages);
+  const { ticketsAccepted, ticketErrors, purgedTokens } =
+    await sendExpoPush(messages);
   return {
     sent: messages.length,
     expoTicketsAccepted: ticketsAccepted,
     expoTicketErrors: ticketErrors,
+    purgedTokens,
   };
 }

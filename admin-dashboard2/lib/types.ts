@@ -1,3 +1,5 @@
+import type { HoroscopeMoodBoard } from "./mood-board";
+
 export type ZodiacSign =
   | "ARIES"
   | "TAURUS"
@@ -58,6 +60,18 @@ export interface AdminRow {
   updatedAt: Date;
 }
 
+/** Monday UTC (calendar date) for the week this outlook covers. */
+export interface WeeklyHoroscopeRow {
+  id: string;
+  zodiacSign: ZodiacSign;
+  weekStartDate: Date;
+  title: string;
+  outlookText: string;
+  isPublished: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 export interface HoroscopeRow {
   id: string;
   zodiacSign: ZodiacSign;
@@ -74,6 +88,7 @@ export interface HoroscopeRow {
   loveActionLabel: string | null;
   healthActionLabel: string | null;
   weeklyOutlook: string | null;
+  moodBoard: HoroscopeMoodBoard | null;
   isPublished: boolean;
   createdById: string | null;
   updatedById: string | null;

@@ -2,6 +2,11 @@ import { randomUUID } from "crypto";
 import type { ZodiacSign, HoroscopeRow } from "./types";
 import { query } from "./db";
 import { getGenerator } from "./generator";
+import {
+  parseMoodBoardLenient,
+  rawMoodBoardFromRow,
+} from "./mood-board";
+import type { HoroscopeMoodBoard } from "./mood-board";
 
 export interface HoroscopeCreateInput {
   zodiacSign: ZodiacSign;
@@ -18,6 +23,7 @@ export interface HoroscopeCreateInput {
   loveActionLabel?: string | null;
   healthActionLabel?: string | null;
   weeklyOutlook?: string | null;
+  moodBoard?: HoroscopeMoodBoard | null;
   isPublished?: boolean;
 }
 
@@ -36,6 +42,7 @@ export interface HoroscopeUpdateInput {
   loveActionLabel?: string | null;
   healthActionLabel?: string | null;
   weeklyOutlook?: string | null;
+  moodBoard?: HoroscopeMoodBoard | null;
   isPublished?: boolean;
 }
 
@@ -69,7 +76,9 @@ function buildListWhere(params: {
   return { where, values };
 }
 
-function mapHoroscopeRow(row: Record<string, unknown>): HoroscopeRow {
+export function mapHoroscopeRow(row: Record<string, unknown>): HoroscopeRow {
+  const moodBoard =
+    parseMoodBoardLenient(rawMoodBoardFromRow(row)) ?? null;
   return {
     id: row.id as string,
     zodiacSign: row.zodiacSign as ZodiacSign,
@@ -86,6 +95,7 @@ function mapHoroscopeRow(row: Record<string, unknown>): HoroscopeRow {
     loveActionLabel: row.loveActionLabel as string | null,
     healthActionLabel: row.healthActionLabel as string | null,
     weeklyOutlook: row.weeklyOutlook as string | null,
+    moodBoard,
     isPublished: Boolean(row.isPublished),
     createdById: row.createdById as string | null,
     updatedById: row.updatedById as string | null,
@@ -134,17 +144,19 @@ export async function createHoroscope(
       "wealthText", "loveText", "healthText",
       "wealthConfidence", "loveConfidence", "healthConfidence",
       "wealthActionLabel", "loveActionLabel", "healthActionLabel",
-      "weeklyOutlook", "isPublished", "createdAt", "updatedAt"
+      "weeklyOutlook", "moodBoard", "isPublished", "createdAt", "updatedAt"
     ) VALUES (
       $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11,
-      $12, $13, $14, $15, $16, $17, $17
+      $12, $13, $14, $15, $16, $17, $18, $19
     )`,
     [
       id, data.zodiacSign, data.date.toISOString(), data.title, data.summary,
       data.wealthText, data.loveText, data.healthText,
       data.wealthConfidence, data.loveConfidence, data.healthConfidence,
       data.wealthActionLabel ?? null, data.loveActionLabel ?? null, data.healthActionLabel ?? null,
-      data.weeklyOutlook ?? null, data.isPublished ?? false, now,
+      data.weeklyOutlook ?? null,
+      data.moodBoard ?? null,
+      data.isPublished ?? false, now, now,
     ]
   );
   const r = await query<HoroscopeRow>('SELECT * FROM "Horoscope" WHERE id = $1', [id]);
@@ -178,6 +190,9 @@ export async function updateHoroscope(
   if (data.loveActionLabel !== undefined) set("loveActionLabel", data.loveActionLabel);
   if (data.healthActionLabel !== undefined) set("healthActionLabel", data.healthActionLabel);
   if (data.weeklyOutlook !== undefined) set("weeklyOutlook", data.weeklyOutlook);
+  if (data.moodBoard !== undefined) {
+    set("moodBoard", data.moodBoard);
+  }
   if (data.isPublished !== undefined) set("isPublished", data.isPublished);
   if (updates.length === 0) {
     const r = await query<HoroscopeRow>('SELECT * FROM "Horoscope" WHERE id = $1', [id]);

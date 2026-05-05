@@ -1,6 +1,14 @@
 import type { ZodiacSign } from "./types";
 import { env } from "./env";
 import * as Astronomy from "astronomy-engine";
+import type { HoroscopeMoodBoard } from "./mood-board";
+import {
+  clampHoroscopeConfidence,
+  defaultMoodBoard,
+  mergeMoodBoardWithResolvedConfidences,
+  parseMoodBoardLenient,
+} from "./mood-board";
+import { finalizePillarConfidences } from "./pillar-confidence-finalize";
 
 export type HoroscopeTone = "mystical" | "modern" | "friendly" | "premium";
 
@@ -17,6 +25,10 @@ export interface GeneratedHoroscopeContent {
   wealthText: string;
   loveText: string;
   healthText: string;
+  loveConfidence: number;
+  wealthConfidence: number;
+  healthConfidence: number;
+  moodBoard: HoroscopeMoodBoard;
   weeklyOutlook?: string;
 }
 
@@ -78,12 +90,39 @@ class MockGenerator implements HoroscopeGeneratorService {
       (input.date.getUTCMonth() + 1) * 100 +
       input.date.getUTCDate();
     const seed = dayKey + hashString(input.zodiacSign) * 17;
+    const title = pick(sampleTitles, seed);
+    const summary = pick(sampleSummaries, seed);
+    const wealthText = pick(sampleWealth, seed);
+    const loveText = pick(sampleLove, seed * 7);
+    const healthText = pick(sampleHealth, seed * 11);
+    const loveC = clampHoroscopeConfidence(48 + (seed % 37));
+    const wealthC = clampHoroscopeConfidence(50 + ((seed * 3) % 35));
+    const healthC = clampHoroscopeConfidence(46 + ((seed * 5) % 39));
+    const fb = finalizePillarConfidences({
+      love: loveC,
+      wealth: wealthC,
+      health: healthC,
+      loveText,
+      wealthText,
+      healthText,
+      salt: `${input.zodiacSign}|${dayKey}|${summary.slice(0, 80)}`,
+    });
+    const moodBoard = mergeMoodBoardWithResolvedConfidences(
+      defaultMoodBoard(),
+      fb.loveConfidence,
+      fb.wealthConfidence,
+      fb.healthConfidence,
+    );
     return {
-      title: pick(sampleTitles, seed),
-      summary: pick(sampleSummaries, seed),
-      wealthText: pick(sampleWealth, seed),
-      loveText: pick(sampleLove, seed * 7),
-      healthText: pick(sampleHealth, seed * 11),
+      title,
+      summary,
+      wealthText,
+      loveText,
+      healthText,
+      loveConfidence: fb.loveConfidence,
+      wealthConfidence: fb.wealthConfidence,
+      healthConfidence: fb.healthConfidence,
+      moodBoard,
       weeklyOutlook: undefined,
     };
   }
@@ -255,9 +294,13 @@ function buildMessages(input: GenerateHoroscopeInput): { role: "system" | "user"
       "4. HEALTH advice must connect to the planets affecting vitality today (e.g. Mars, Moon phase, 6th house).",
       "5. The title must be a creative 2-4 word phrase that captures THIS day's unique energy—never generic.",
       "6. The summary must mention at least ONE specific planet or aspect from today's sky.",
-      "7. weeklyOutlook should tie the day's themes to broader patterns for the week ahead.",
-      "8. Each field: 2-3 sentences. Simple English. No filler.",
-      "9. Do NOT mention houses or rising signs unless they are explicitly provided in the SKY SNAPSHOT.",
+      "7. Each text field: 2-3 sentences. Simple English. No filler.",
+      "8. Do NOT mention houses or rising signs unless they are explicitly provided in the SKY SNAPSHOT.",
+      "9. loveConfidence, wealthConfidence, healthConfidence: integers from 40 to 95. They MUST reflect how supportive or demanding THIS day's copy is for that pillar: higher when the advice is mostly encouraging or opportune, lower when you warn about tension, delays, or heavy lifts.",
+      "10. The three confidence numbers MUST differ: spread at least 6 points between the highest and lowest (no 70,70,70 style ties). The pillar that gets the strongest positive story should usually have the highest score.",
+      "11. moodBoard: JSON object with keys love, health, career. Each pillar has headline (2-5 words), vibes (array of exactly 3 short words), palette (hex like #FB7185). Career maps to wealth/career advice. Headlines should echo the emotional tone of the matching text field.",
+      "12. You may omit per-pillar confidence inside moodBoard; the three top-level confidence numbers are authoritative.",
+      "13. Do NOT include weekly or multi-day outlook copy in this JSON. Daily entries are only for this calendar day.",
       "",
       "STYLE RULES:",
       "A. Do NOT use em dashes or en dashes (— or –). Use periods or commas instead.",
@@ -278,8 +321,10 @@ function buildMessages(input: GenerateHoroscopeInput): { role: "system" | "user"
       "Using the planetary positions and aspects above, write a horoscope that could ONLY apply to this exact sign on this exact date.",
       "If you removed the sign name and date, a reader should still be able to tell it apart from yesterday's or another sign's horoscope because the planetary references and advice are different.",
       "",
+      "After you write loveText, wealthText, and healthText, set each confidence from how supportive or demanding THAT paragraph reads (not from a generic default). The three scores must differ meaningfully.",
+      "",
       "Return ONLY a JSON object, no markdown, no explanation:",
-      '{ "title": "...", "summary": "...", "wealthText": "...", "loveText": "...", "healthText": "...", "weeklyOutlook": "..." }',
+      '{ "title": "...", "summary": "...", "wealthText": "...", "loveText": "...", "healthText": "...", "loveConfidence": 74, "wealthConfidence": 61, "healthConfidence": 82, "moodBoard": { "love": { "headline": "Warm opening", "vibes": ["Soft","Honest","Present"], "palette": "#FB7185" }, "health": { "headline": "Steady rhythm", "vibes": ["Rest","Fuel","Light"], "palette": "#38BDF8" }, "career": { "headline": "Focused push", "vibes": ["Clear","Bold","Practical"], "palette": "#4ADE80" } } }',
     ]
       .filter(Boolean)
       .join("\n"),
@@ -309,7 +354,7 @@ async function groqGenerate(
           messages,
           temperature: 0.95,
           top_p: 0.9,
-          max_tokens: 700,
+          max_tokens: 1100,
         },
         {
           headers: { Authorization: `Bearer ${env.groqApiKey}` },
@@ -318,10 +363,10 @@ async function groqGenerate(
       );
 
       const raw = res.data.choices?.[0]?.message?.content ?? "{}";
-      let parsed: Record<string, string>;
+      let parsed: Record<string, unknown>;
       try {
         const cleaned = raw.replace(/```json\s*/g, "").replace(/```\s*/g, "").trim();
-        parsed = JSON.parse(cleaned);
+        parsed = JSON.parse(cleaned) as Record<string, unknown>;
       } catch {
         parsed = {};
       }
@@ -334,13 +379,70 @@ async function groqGenerate(
           .replace(/\s{2,}/g, " ")
           .trim();
       };
+      const firstNum = (o: Record<string, unknown>, keys: string[]): number | undefined => {
+        for (const k of keys) {
+          const v = o[k];
+          if (typeof v === "number" && Number.isFinite(v)) return v;
+          if (typeof v === "string" && v.trim() !== "" && !Number.isNaN(Number(v))) {
+            return Number(v);
+          }
+        }
+        return undefined;
+      };
+      const title = clean(parsed.title) ?? "Daily Focus";
+      const summary =
+        clean(parsed.summary) ??
+        "Today is a good day to keep things simple and act on one clear priority.";
+      const wealthText =
+        clean(parsed.wealthText) ??
+        "Take one practical step with money or work today. Review a bill, a plan, or a message you have been avoiding.";
+      const loveText =
+        clean(parsed.loveText) ??
+        "Be direct and kind. Say what you need and ask one good question instead of guessing.";
+      const healthText =
+        clean(parsed.healthText) ??
+        "Choose something you can actually repeat. A walk, water, and an earlier bedtime will do more than a big reset.";
+      const loveRaw = clampHoroscopeConfidence(
+        firstNum(parsed, ["loveConfidence", "love_confidence"]) ?? 72,
+      );
+      const wealthRaw = clampHoroscopeConfidence(
+        firstNum(parsed, [
+          "wealthConfidence",
+          "wealth_confidence",
+          "careerConfidence",
+          "career_confidence",
+        ]) ?? 72,
+      );
+      const healthRaw = clampHoroscopeConfidence(
+        firstNum(parsed, ["healthConfidence", "health_confidence"]) ?? 72,
+      );
+      const fb = finalizePillarConfidences({
+        love: loveRaw,
+        wealth: wealthRaw,
+        health: healthRaw,
+        loveText,
+        wealthText,
+        healthText,
+        salt: `${input.zodiacSign}|${input.date.toISOString()}|${summary.slice(0, 120)}`,
+      });
+      const mbRaw = parsed.moodBoard ?? parsed.mood_board;
+      const mb = parseMoodBoardLenient(mbRaw) ?? defaultMoodBoard();
+      const moodBoard = mergeMoodBoardWithResolvedConfidences(
+        mb,
+        fb.loveConfidence,
+        fb.wealthConfidence,
+        fb.healthConfidence,
+      );
       return {
-        title: clean(parsed.title) ?? "Daily Focus",
-        summary: clean(parsed.summary) ?? "Today is a good day to keep things simple and act on one clear priority.",
-        wealthText: clean(parsed.wealthText) ?? "Take one practical step with money or work today. Review a bill, a plan, or a message you have been avoiding.",
-        loveText: clean(parsed.loveText) ?? "Be direct and kind. Say what you need and ask one good question instead of guessing.",
-        healthText: clean(parsed.healthText) ?? "Choose something you can actually repeat. A walk, water, and an earlier bedtime will do more than a big reset.",
-        weeklyOutlook: clean(parsed.weeklyOutlook) ?? "This week rewards steady effort. Small consistent choices add up.",
+        title,
+        summary,
+        wealthText,
+        loveText,
+        healthText,
+        loveConfidence: fb.loveConfidence,
+        wealthConfidence: fb.wealthConfidence,
+        healthConfidence: fb.healthConfidence,
+        moodBoard,
       };
     } catch (err: unknown) {
       lastError = err;

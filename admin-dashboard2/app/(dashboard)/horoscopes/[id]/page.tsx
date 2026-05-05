@@ -5,6 +5,8 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { api } from "@/lib/api-client";
 import type { ZodiacSign } from "@/lib/types";
+import type { HoroscopeMoodBoard } from "@/lib/mood-board";
+import { HoroscopeMoodGlance } from "@/components/HoroscopeMoodGlance";
 
 const ZODIAC_SIGNS: ZodiacSign[] = [
   "ARIES", "TAURUS", "GEMINI", "CANCER", "LEO", "VIRGO",
@@ -24,6 +26,7 @@ interface Horoscope {
   loveConfidence: number;
   healthConfidence: number;
   weeklyOutlook: string | null;
+  moodBoard?: HoroscopeMoodBoard | null;
   isPublished: boolean;
 }
 
@@ -76,14 +79,14 @@ export default function HoroscopeEditPage() {
         ...form,
         weeklyOutlook: form.weeklyOutlook || null,
       });
-      router.push("/horoscopes");
+      router.push("/horoscopes/daily");
     } finally {
       setSaving(false);
     }
   };
 
   if (!id) {
-    router.replace("/horoscopes");
+    router.replace("/horoscopes/daily");
     return null;
   }
   if (loading) return <div className="text-slate-400">Loading...</div>;
@@ -91,10 +94,21 @@ export default function HoroscopeEditPage() {
 
   return (
     <div className="space-y-6">
-      <Link href="/horoscopes" className="text-sm text-purple-400 hover:text-purple-300">
-        ← Horoscopes
+      <Link href="/horoscopes/daily" className="text-sm text-purple-400 hover:text-purple-300">
+        ← Daily horoscopes
       </Link>
       <h1 className="text-2xl font-semibold">Edit: {h.zodiacSign} · {h.date}</h1>
+      <HoroscopeMoodGlance
+        moodBoard={h.moodBoard}
+        loveConfidence={h.loveConfidence}
+        wealthConfidence={h.wealthConfidence}
+        healthConfidence={h.healthConfidence}
+      />
+      <p className="max-w-2xl text-xs text-muted-foreground">
+        Mood board JSON is generated with each daily draft. To change headlines or vibes, re-run
+        generation or PATCH the row via API with a <code className="rounded bg-muted px-1">moodBoard</code>{" "}
+        object.
+      </p>
       <div className="space-y-4 max-w-2xl">
         <div>
           <label className="text-sm font-medium">Title</label>
@@ -138,6 +152,20 @@ export default function HoroscopeEditPage() {
             onChange={(e) => setForm((f) => ({ ...f, healthText: e.target.value }))}
             rows={2}
             className="mt-1 w-full rounded-lg border border-purple-500/30 bg-purple-900/10 px-3 py-2"
+          />
+        </div>
+        <div>
+          <label className="text-sm font-medium">Weekly outlook (optional, legacy)</label>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Daily generation no longer fills this. Prefer clearing it unless you are backfilling old
+            content. A separate weekly generator will publish week-level copy later.
+          </p>
+          <textarea
+            value={form.weeklyOutlook ?? ""}
+            onChange={(e) => setForm((f) => ({ ...f, weeklyOutlook: e.target.value }))}
+            rows={3}
+            placeholder="Leave empty for daily-only rows"
+            className="mt-2 w-full rounded-lg border border-purple-500/30 bg-purple-900/10 px-3 py-2"
           />
         </div>
         <button

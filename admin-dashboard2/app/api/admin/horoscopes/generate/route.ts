@@ -66,10 +66,11 @@ export async function POST(request: NextRequest) {
         wealthText: content.wealthText,
         loveText: content.loveText,
         healthText: content.healthText,
-        wealthConfidence: 70,
-        loveConfidence: 70,
-        healthConfidence: 70,
-        weeklyOutlook: content.weeklyOutlook ?? null,
+        wealthConfidence: content.wealthConfidence,
+        loveConfidence: content.loveConfidence,
+        healthConfidence: content.healthConfidence,
+        weeklyOutlook: null,
+        moodBoard: content.moodBoard,
         isPublished: false,
       });
       generated.push({ ...created, zodiacSign: z });

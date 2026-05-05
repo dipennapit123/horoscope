@@ -1,13 +1,16 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import dayjs from "dayjs";
 import { api } from "@/lib/api-client";
 import { Card, Button, Input } from "@/components/ui";
+import { HoroscopeMoodGlance } from "@/components/HoroscopeMoodGlance";
 import type { ZodiacSign } from "@/lib/types";
+import type { HoroscopeMoodBoard } from "@/lib/mood-board";
 
 const schema = z.object({
   date: z.string().min(1, "Date is required"),
@@ -22,6 +25,7 @@ const ZODIAC_OPTIONS: ZodiacSign[] = [
   "LIBRA", "SCORPIO", "SAGITTARIUS", "CAPRICORN", "AQUARIUS", "PISCES",
 ];
 
+/** Shape returned from POST /admin/horoscopes/generate (full row + zodiac echoed). */
 interface GeneratedItem {
   zodiacSign: ZodiacSign;
   id?: string;
@@ -30,7 +34,11 @@ interface GeneratedItem {
   wealthText: string;
   loveText: string;
   healthText: string;
-  weeklyOutlook?: string;
+  loveConfidence: number;
+  wealthConfidence: number;
+  healthConfidence: number;
+  moodBoard?: HoroscopeMoodBoard | null;
+  weeklyOutlook?: string | null;
 }
 
 export default function GeneratePage() {
@@ -81,13 +89,29 @@ export default function GeneratePage() {
 
   return (
     <div className="space-y-4">
-      <div>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
         <h1 className="text-2xl font-semibold tracking-tight">
-          Generate horoscopes
+          Generate daily horoscopes
         </h1>
         <p className="text-sm text-muted-foreground">
-          Draft multiple sign-specific entries using the mock generator.
+          Draft sign-specific daily entries (Groq when configured, otherwise mock). Mood metrics are
+          saved for the app and marketing site.
         </p>
+        <p className="text-xs text-muted-foreground/90">
+          Weekly copy lives under{" "}
+          <Link href="/horoscopes/weekly" className="font-semibold text-purple-300 hover:underline">
+            Horoscopes → Weekly
+          </Link>
+          . Daily runs leave <code className="rounded bg-muted px-1">weeklyOutlook</code> empty.
+        </p>
+        </div>
+        <Link
+          href="/horoscopes/daily"
+          className="shrink-0 text-sm text-purple-400 hover:text-purple-300"
+        >
+          ← Daily list
+        </Link>
       </div>
 
       <Card className="space-y-4 p-6">
@@ -221,6 +245,12 @@ export default function GeneratePage() {
                   {selectedDetail.summary}
                 </p>
               </div>
+              <HoroscopeMoodGlance
+                moodBoard={selectedDetail.moodBoard}
+                loveConfidence={selectedDetail.loveConfidence}
+                wealthConfidence={selectedDetail.wealthConfidence}
+                healthConfidence={selectedDetail.healthConfidence}
+              />
               <div className="grid gap-4">
                 <div className="rounded-xl border border-purple-500/20 bg-purple-500/10 p-4">
                   <p className="mb-2 text-xs font-medium uppercase tracking-wide text-purple-400">
@@ -247,13 +277,27 @@ export default function GeneratePage() {
                   </p>
                 </div>
               </div>
-              {selectedDetail.weeklyOutlook && (
-                <div className="rounded-xl border border-purple-500/20 bg-muted/60 p-4">
-                  <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              {selectedDetail.weeklyOutlook ? (
+                <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4">
+                  <p className="mb-2 text-xs font-medium uppercase tracking-wide text-amber-200">
+                    Legacy weekly text (on this daily row)
+                  </p>
+                  <p className="mb-2 text-xs text-amber-100/90">
+                    Older drafts may still carry weekly copy here. New daily generation leaves this
+                    blank so weekly can be produced and published separately.
+                  </p>
+                  <p className="whitespace-pre-wrap text-sm leading-relaxed text-muted-foreground">
+                    {selectedDetail.weeklyOutlook}
+                  </p>
+                </div>
+              ) : (
+                <div className="rounded-xl border border-slate-600/50 bg-muted/40 p-4">
+                  <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                     Weekly outlook
                   </p>
-                  <p className="whitespace-pre-wrap text-sm leading-relaxed">
-                    {selectedDetail.weeklyOutlook}
+                  <p className="mt-2 text-sm text-muted-foreground">
+                    Not included in daily generation. A dedicated weekly flow (per sign / week) will
+                    populate the site and app when that feature ships.
                   </p>
                 </div>
               )}
