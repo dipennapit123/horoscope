@@ -47,9 +47,9 @@ export function MobileAppPromo() {
       ].join(" ")}
     >
       <div className="relative w-full border-b border-white/10 bg-linear-to-r from-black via-primary-container/20 to-black shadow-2xl shadow-primary/20 backdrop-blur-xl">
-        <div className="mx-auto flex w-full max-w-7xl flex-wrap items-center gap-4 px-4 py-5 sm:gap-6 sm:px-8 sm:py-6">
-          <div className="flex min-w-0 flex-1 items-center gap-4 sm:gap-5">
-            <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-2xl ring-2 ring-primary/30 shadow-lg shadow-primary/20 sm:h-16 sm:w-16">
+        <div className="mx-auto flex w-full max-w-7xl flex-wrap items-center gap-3 px-4 py-3 sm:gap-6 sm:px-8 sm:py-6">
+          <div className="flex min-w-0 flex-1 items-center gap-3 sm:gap-5">
+            <div className="relative h-11 w-11 shrink-0 overflow-hidden rounded-2xl ring-2 ring-primary/30 shadow-lg shadow-primary/20 sm:h-16 sm:w-16">
               <Image
                 src="/icon.png"
                 alt={`${site.name} app icon`}
@@ -61,10 +61,10 @@ export function MobileAppPromo() {
             </div>
 
             <div className="flex min-w-0 flex-col leading-tight">
-              <p className="font-headline text-lg font-extrabold text-on-surface sm:text-xl">
+              <p className="font-headline text-base font-extrabold text-on-surface sm:text-xl">
                 Get {site.name} on your phone
               </p>
-              <p className="text-sm text-on-surface-variant sm:text-base">
+              <p className="hidden text-sm text-on-surface-variant sm:block sm:text-base">
                 Daily horoscopes, calm UI, no clutter — read your sign on the go.
               </p>
             </div>
@@ -76,7 +76,7 @@ export function MobileAppPromo() {
               target="_blank"
               rel="noopener noreferrer"
               aria-label="Download on the App Store"
-              className="group flex items-center gap-2 rounded-xl border border-white/15 bg-neutral-900/80 px-3 py-2 text-white transition hover:border-white/30 hover:bg-neutral-800/90 sm:px-4"
+              className="group flex items-center gap-2 rounded-xl border border-white/15 bg-neutral-900/80 p-2 text-white transition hover:border-white/30 hover:bg-neutral-800/90 sm:px-4 sm:py-2"
             >
               <AppleLogo className="h-6 w-6 shrink-0 text-white sm:h-7 sm:w-7" />
               <span className="hidden text-left leading-tight sm:block">
@@ -94,7 +94,7 @@ export function MobileAppPromo() {
               target="_blank"
               rel="noopener noreferrer"
               aria-label="Get it on Google Play"
-              className="group flex items-center gap-2 rounded-xl border border-white/15 bg-neutral-900/80 px-3 py-2 text-white transition hover:border-white/30 hover:bg-neutral-800/90 sm:px-4"
+              className="group flex items-center gap-2 rounded-xl border border-white/15 bg-neutral-900/80 p-2 text-white transition hover:border-white/30 hover:bg-neutral-800/90 sm:px-4 sm:py-2"
             >
               <GooglePlayLogo className="h-6 w-6 shrink-0 sm:h-7 sm:w-7" />
               <span className="hidden text-left leading-tight sm:block">
