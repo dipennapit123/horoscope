@@ -90,8 +90,7 @@ export default function PortfolioDashboardPage() {
       options: {
         responsive: true,
         maintainAspectRatio: false,
-        events: ["mousemove", "mouseout", "click", "touchstart", "touchmove"],
-        interaction: { mode: "index", intersect: false },
+        interaction: { mode: "index" as const, intersect: false },
         plugins: { legend: { display: false }, tooltip: { enabled: true } },
         scales: {
           x: { grid: { color: "rgba(148, 163, 184, 0.12)" } },
@@ -100,7 +99,7 @@ export default function PortfolioDashboardPage() {
             beginAtZero: true,
           },
         },
-      } as const,
+      },
     };
   }, [data]);
 
