@@ -29,9 +29,10 @@ const navItems: NavItem[] = [
     label: "PORTFOLIO",
     icon: "public",
     children: [
-      { key: "dashboard-portfolio", href: "/dashboard/portfolio", label: "Dashboard", icon: "dashboard" },
-      { key: "dashboard-portfolio-visitors", href: "/dashboard/portfolio", label: "Visitors", icon: "groups" },
-      { key: "dashboard-portfolio-charts", href: "/dashboard/portfolio#charts", label: "Charts", icon: "show_chart" },
+      { key: "dashboard-portfolio", href: "/dashboard/portfolio", label: "Overview", icon: "dashboard" },
+      { key: "portfolio-links", href: "/dashboard/portfolio/links", label: "Visited links", icon: "link" },
+      { key: "portfolio-sources", href: "/dashboard/portfolio/sources", label: "Sources", icon: "public" },
+      { key: "portfolio-campaigns", href: "/dashboard/portfolio/campaigns", label: "Campaigns", icon: "campaign" },
     ],
   },
   {
@@ -98,6 +99,9 @@ export default function DashboardLayout({
   else if (pathname?.startsWith("/horoscopes/weekly")) activeKey = "horoscopes-weekly";
   else if (pathname?.match(/^\/horoscopes\/[0-9a-f-]{36}$/i)) activeKey = "horoscopes-daily";
   else if (pathname === "/horoscopes") activeKey = "horoscopes-daily";
+  else if (pathname?.startsWith("/dashboard/portfolio/campaigns")) activeKey = "portfolio-campaigns";
+  else if (pathname?.startsWith("/dashboard/portfolio/sources")) activeKey = "portfolio-sources";
+  else if (pathname?.startsWith("/dashboard/portfolio/links")) activeKey = "portfolio-links";
   else if (pathname?.startsWith("/dashboard/portfolio")) activeKey = "dashboard-portfolio";
   else if (pathname?.startsWith("/dashboard/mobile/charts")) activeKey = "dashboard-mobile-charts";
   else if (pathname?.startsWith("/dashboard/mobile")) activeKey = "dashboard-mobile";
@@ -110,7 +114,7 @@ export default function DashboardLayout({
   else if (pathname?.startsWith("/settings")) activeKey = "settings";
 
   return (
-    <div className="flex min-h-screen bg-gradient-to-br from-[#050316] via-[#05021A] to-[#0B061F] text-foreground">
+    <div className="flex min-h-screen bg-linear-to-br from-[#050316] via-[#05021A] to-[#0B061F] text-foreground">
       <aside className="flex h-screen w-64 flex-col border-r border-purple-900/30 bg-[#0d0618]">
         <Link href="/" className="flex items-center gap-3 px-6 py-6 hover:opacity-95">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#7f13ec] text-white">

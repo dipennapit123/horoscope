@@ -50,8 +50,9 @@ function TrafficTable({
   rows: Array<{ label: string; pageviews: number; uniqueVisitors: number }>;
   emptyLabel: string;
 }) {
+  const isUrl = (s: string) => /^https?:\/\//i.test(s);
   return (
-    <section className="rounded-2xl border border-purple-900/40 bg-gradient-to-b from-[#0b0515] to-[#050316] p-6">
+    <section className="rounded-2xl border border-purple-900/40 bg-linear-to-b from-[#0b0515] to-[#050316] p-6">
       <div className="mb-4">
         <h2 className="text-lg font-semibold">{title}</h2>
         <p className="text-xs text-muted-foreground">Nepal time bucketing.</p>
@@ -76,10 +77,22 @@ function TrafficTable({
                   key={`${r.label}-${idx}`}
                   className="border-t border-purple-900/30 bg-black/10"
                 >
-                  <td className="max-w-[0] px-3 py-2">
-                    <div className="truncate font-medium text-on-surface" title={r.label}>
-                      {r.label}
-                    </div>
+                  <td className="max-w-0 px-3 py-2">
+                    {isUrl(r.label) ? (
+                      <a
+                        href={r.label}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="block truncate font-medium text-on-surface hover:underline"
+                        title={r.label}
+                      >
+                        {r.label}
+                      </a>
+                    ) : (
+                      <div className="truncate font-medium text-on-surface" title={r.label}>
+                        {r.label}
+                      </div>
+                    )}
                   </td>
                   <td className="px-3 py-2 text-right tabular-nums">{r.pageviews}</td>
                   <td className="px-3 py-2 text-right tabular-nums">{r.uniqueVisitors}</td>
@@ -186,7 +199,7 @@ export default function PortfolioDashboardPage() {
       )}
 
       <section className="grid grid-cols-1 gap-4 md:grid-cols-2">
-        <div className="rounded-2xl border border-purple-900/40 bg-gradient-to-b from-purple-900/40 to-purple-950/20 p-5 shadow-lg shadow-purple-950/30">
+        <div className="rounded-2xl border border-purple-900/40 bg-linear-to-b from-purple-900/40 to-purple-950/20 p-5 shadow-lg shadow-purple-950/30">
           <p className="text-xs font-medium text-muted-foreground">Unique visitors</p>
           {!loaded ? (
             skeleton
@@ -196,7 +209,7 @@ export default function PortfolioDashboardPage() {
           <p className="mt-1 text-xs text-muted-foreground">Today (Nepal day)</p>
         </div>
 
-        <div className="rounded-2xl border border-purple-900/40 bg-gradient-to-b from-purple-900/40 to-purple-950/20 p-5 shadow-lg shadow-purple-950/30">
+        <div className="rounded-2xl border border-purple-900/40 bg-linear-to-b from-purple-900/40 to-purple-950/20 p-5 shadow-lg shadow-purple-950/30">
           <p className="text-xs font-medium text-muted-foreground">Unique visitors</p>
           {!loaded ? (
             skeleton
@@ -208,7 +221,7 @@ export default function PortfolioDashboardPage() {
       </section>
 
       <section className="grid grid-cols-1 gap-4 md:grid-cols-2">
-        <div className="rounded-2xl border border-purple-900/40 bg-gradient-to-b from-purple-900/40 to-purple-950/20 p-5 shadow-lg shadow-purple-950/30">
+        <div className="rounded-2xl border border-purple-900/40 bg-linear-to-b from-purple-900/40 to-purple-950/20 p-5 shadow-lg shadow-purple-950/30">
           <p className="text-xs font-medium text-muted-foreground">Total traffic</p>
           {!loaded ? (
             skeleton
@@ -217,7 +230,7 @@ export default function PortfolioDashboardPage() {
           )}
           <p className="mt-1 text-xs text-muted-foreground">Pageviews today (Nepal day)</p>
         </div>
-        <div className="rounded-2xl border border-purple-900/40 bg-gradient-to-b from-purple-900/40 to-purple-950/20 p-5 shadow-lg shadow-purple-950/30">
+        <div className="rounded-2xl border border-purple-900/40 bg-linear-to-b from-purple-900/40 to-purple-950/20 p-5 shadow-lg shadow-purple-950/30">
           <p className="text-xs font-medium text-muted-foreground">Total traffic</p>
           {!loaded ? (
             skeleton
@@ -228,7 +241,7 @@ export default function PortfolioDashboardPage() {
         </div>
       </section>
 
-      <section className="rounded-2xl border border-purple-900/40 bg-gradient-to-b from-[#0b0515] to-[#050316] p-6">
+      <section className="rounded-2xl border border-purple-900/40 bg-linear-to-b from-[#0b0515] to-[#050316] p-6">
         <div className="mb-6">
           <h2 className="text-lg font-semibold">Unique visitors trend</h2>
           <p className="text-xs text-muted-foreground">Last 30 Nepal-days.</p>
