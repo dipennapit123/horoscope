@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { useEffect, useMemo, useState } from "react";
 import { site, type ZodiacEntry, type ZodiacSlug } from "@/src/content/site";
+import { getOrCreateSessionId, getOrCreateVisitorId } from "@/src/lib/analyticsIds";
 import {
   getMockHoroscope,
   type DayMode,
@@ -134,6 +135,32 @@ export function HoroscopeReader({ sign }: Props) {
     return () => {
       cancelled = true;
     };
+  }, [sign.slug]);
+
+  useEffect(() => {
+    // Track sign page views for marketing attribution.
+    const visitorId = getOrCreateVisitorId();
+    const sessionId = getOrCreateSessionId();
+    const path = `${window.location.pathname}${window.location.search}`;
+    const qs = new URLSearchParams(window.location.search);
+    void fetch("/api/track", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      cache: "no-store",
+      keepalive: true,
+      body: JSON.stringify({
+        visitorId,
+        sessionId,
+        eventName: "horoscope_view",
+        path,
+        url: window.location.href,
+        referrer: document.referrer || null,
+        utmSource: qs.get("utm_source"),
+        utmMedium: qs.get("utm_medium"),
+        utmCampaign: qs.get("utm_campaign"),
+        utmContent: qs.get("utm_content"),
+      }),
+    }).catch(() => {});
   }, [sign.slug]);
 
   const horoscope = useMemo((): DisplayHoroscope => {

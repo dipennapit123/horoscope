@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { Poppins } from "next/font/google";
 import "./globals.css";
+import { Suspense } from "react";
+import { AnalyticsTracker } from "@/src/components/AnalyticsTracker";
 import { Footer } from "@/src/components/Footer";
 import { MobileAppPromo } from "@/src/components/MobileAppPromo";
 import { Navbar } from "@/src/components/Navbar";
@@ -69,6 +71,9 @@ export default function RootLayout({
         />
       </head>
       <body className="min-h-full flex flex-col bg-black text-on-surface font-body selection:bg-primary selection:text-on-primary">
+        <Suspense fallback={null}>
+          <AnalyticsTracker />
+        </Suspense>
         <Navbar />
         <MobileAppPromo />
         <div className="relative flex-1">
