@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Poppins } from "next/font/google";
 import "./globals.css";
 import { Footer } from "@/src/components/Footer";
+import { MobileAppPromo } from "@/src/components/MobileAppPromo";
 import { Navbar } from "@/src/components/Navbar";
 import { site } from "@/src/content/site";
 
@@ -69,6 +70,7 @@ export default function RootLayout({
       </head>
       <body className="min-h-full flex flex-col bg-black text-on-surface font-body selection:bg-primary selection:text-on-primary">
         <Navbar />
+        <MobileAppPromo />
         <div className="relative flex-1">
           {/* Background Decoration */}
           <div className="fixed inset-0 pointer-events-none z-0">
@@ -76,7 +78,10 @@ export default function RootLayout({
             <div className="absolute top-[-10%] right-[-10%] h-[600px] w-[600px] nebula-glow" />
             <div className="absolute bottom-[-20%] left-[-10%] h-[800px] w-[800px] nebula-glow opacity-50" />
           </div>
-          <div className="relative z-10">{children}</div>
+          {/* pt-28 pushes every page below the fixed MobileAppPromo banner
+              (~113px tall). Pages keep their own pt-24/pt-32 for visual
+              rhythm — that padding now sits below the banner. */}
+          <div className="relative z-10 pt-28">{children}</div>
         </div>
         <Footer />
       </body>

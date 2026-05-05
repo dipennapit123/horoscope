@@ -41,7 +41,7 @@ export default function Home() {
             <p className="max-w-lg text-base leading-relaxed text-neutral-300 sm:text-lg">
               {site.name} is a calm horoscope app: sign in with Google, pick your
               zodiac, and read today&apos;s forecast—with yesterday and tomorrow
-              a tap away. Entertainment only.
+              a tap away.
             </p>
             <div className="w-full max-w-md">
               <StoreBadgeButtons className="justify-center lg:justify-start" />
@@ -127,9 +127,6 @@ export default function Home() {
                   to see the day you care about—then pull down to refresh when
                   new content is available.
                 </p>
-                <p className="text-xs leading-relaxed text-on-surface-variant/75">
-                  Entertainment only—not medical, legal, or financial advice.
-                </p>
               </div>
 
               <div className="w-full shrink-0 rounded-2xl border border-white/10 bg-black p-5 shadow-inner ring-1 ring-white/5 transition-transform duration-300 group-hover:scale-[1.02] lg:max-w-[300px]">
@@ -161,9 +158,6 @@ export default function Home() {
                 <p className="text-sm italic leading-relaxed text-on-surface/85">
                   &ldquo;Energy is high—channel it into one meaningful move
                   today, not ten half-finished ones.&rdquo;
-                </p>
-                <p className="mt-3 text-[10px] leading-snug text-on-surface-variant/70">
-                  Ai-generated for entertainment only.
                 </p>
               </div>
             </div>

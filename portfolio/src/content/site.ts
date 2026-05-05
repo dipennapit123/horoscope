@@ -26,25 +26,42 @@ export type SiteHeroScreen = {
   height: number;
 };
 
-/** Twelve signs for `/horoscope/[sign]` SEO pages (slug = URL segment, lowercase). */
+/**
+ * Twelve signs for `/horoscope` (selector grid) and `/horoscope/[sign]` (reading page).
+ *
+ * - `slug` is the URL segment (lowercase).
+ * - `label` is the display name.
+ * - `dateRange` is the human-readable range shown on the selector card and reading header.
+ * - `glyph` is the Unicode astrology character used as a fallback in `ZodiacAvatar`
+ *   when no `imageSrc` is provided.
+ * - `imageSrc` (optional) — drop a PNG into `public/horoscope/<slug>.png` and set
+ *   this to `/horoscope/<slug>.png` to swap the gradient placeholder for real art.
+ */
 export const zodiacSigns = [
-  { slug: "aries", label: "Aries" },
-  { slug: "taurus", label: "Taurus" },
-  { slug: "gemini", label: "Gemini" },
-  { slug: "cancer", label: "Cancer" },
-  { slug: "leo", label: "Leo" },
-  { slug: "virgo", label: "Virgo" },
-  { slug: "libra", label: "Libra" },
-  { slug: "scorpio", label: "Scorpio" },
-  { slug: "sagittarius", label: "Sagittarius" },
-  { slug: "capricorn", label: "Capricorn" },
-  { slug: "aquarius", label: "Aquarius" },
-  { slug: "pisces", label: "Pisces" },
-] as const;
+  { slug: "aries", label: "Aries", dateRange: "Mar 21 - Apr 19", glyph: "\u2648" },
+  { slug: "taurus", label: "Taurus", dateRange: "Apr 20 - May 20", glyph: "\u2649" },
+  { slug: "gemini", label: "Gemini", dateRange: "May 21 - Jun 20", glyph: "\u264A" },
+  { slug: "cancer", label: "Cancer", dateRange: "Jun 21 - Jul 22", glyph: "\u264B" },
+  { slug: "leo", label: "Leo", dateRange: "Jul 23 - Aug 22", glyph: "\u264C" },
+  { slug: "virgo", label: "Virgo", dateRange: "Aug 23 - Sept 22", glyph: "\u264D" },
+  { slug: "libra", label: "Libra", dateRange: "Sept 23 - Oct 22", glyph: "\u264E" },
+  { slug: "scorpio", label: "Scorpio", dateRange: "Oct 23 - Nov 21", glyph: "\u264F" },
+  { slug: "sagittarius", label: "Sagittarius", dateRange: "Nov 22 - Dec 21", glyph: "\u2650" },
+  { slug: "capricorn", label: "Capricorn", dateRange: "Dec 22 - Jan 19", glyph: "\u2651" },
+  { slug: "aquarius", label: "Aquarius", dateRange: "Jan 20 - Feb 18", glyph: "\u2652" },
+  { slug: "pisces", label: "Pisces", dateRange: "Feb 19 - Mar 20", glyph: "\u2653" },
+] as const satisfies ReadonlyArray<{
+  slug: string;
+  label: string;
+  dateRange: string;
+  glyph: string;
+  imageSrc?: string;
+}>;
 
 export type ZodiacSlug = (typeof zodiacSigns)[number]["slug"];
+export type ZodiacEntry = (typeof zodiacSigns)[number];
 
-export function getZodiacBySlug(slug: string) {
+export function getZodiacBySlug(slug: string): ZodiacEntry | undefined {
   return zodiacSigns.find((z) => z.slug === slug);
 }
 

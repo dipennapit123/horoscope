@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
@@ -6,6 +7,7 @@ import {
   zodiacSigns,
   getZodiacBySlug,
 } from "@/src/content/site";
+import { HoroscopeReader } from "@/src/components/horoscope/HoroscopeReader";
 import { StoreBadgeButtons } from "@/src/components/StoreBadgeButtons";
 
 type PageProps = {
@@ -26,7 +28,7 @@ export async function generateMetadata({
   }
   const signLower = z.label.toLowerCase();
   const title = `${z.label} daily horoscope`;
-  const description = `Free ${z.label} daily horoscope in the ${site.name} app. Read today’s forecast, switch between yesterday and tomorrow, and explore love, wealth, and health—entertainment only.`;
+  const description = `Free ${z.label} daily horoscope in the ${site.name} app. Read today's forecast, switch between yesterday and tomorrow, and explore Love, Career, and Health.`;
   const keywords = [
     `${signLower} horoscope`,
     `${signLower} daily horoscope`,
@@ -64,46 +66,56 @@ export default async function HoroscopeSignPage({ params }: PageProps) {
   }
 
   return (
-    <main className="relative z-10 mx-auto max-w-3xl px-6 pb-24 pt-32 text-on-surface">
-      <p className="mb-8">
+    <main className="relative z-10 mx-auto max-w-3xl px-4 pb-16 pt-24 lg:max-w-4xl sm:px-6 sm:pb-24 sm:pt-28 md:pt-32 text-on-surface">
+      <p className="mb-6 sm:mb-8">
         <Link
-          href="/"
-          className="inline-flex items-center gap-1 text-sm font-medium text-on-surface-variant transition-colors hover:text-primary"
+          href="/horoscope"
+          className="inline-flex min-h-11 items-center gap-1 text-sm font-medium text-on-surface-variant touch-manipulation transition-colors hover:text-primary"
         >
-          <span aria-hidden>←</span> Back to Home
+          <span aria-hidden>&larr;</span> Back to all signs
         </Link>
       </p>
 
-      <h1 className="font-headline text-4xl font-extrabold tracking-tight text-white md:text-5xl">
-        {z.label} daily horoscope
-      </h1>
-      <p className="mt-4 text-lg leading-relaxed text-on-surface-variant">
-        Looking for a <strong className="text-on-surface">free daily horoscope</strong>{" "}
-        for {z.label}? {site.name} delivers a calm reading for your sign—flip between
-        yesterday, today, and tomorrow, with love, wealth, and health in one place.
-        Entertainment only.
-      </p>
+      <HoroscopeReader sign={z} />
 
-      <div className="mt-10 max-w-md">
-        <StoreBadgeButtons />
-      </div>
-
-      <section className="mt-16">
-        <h2 className="mb-4 font-headline text-lg font-bold text-primary">
-          More zodiac signs
+      <section className="mt-12 overflow-hidden rounded-2xl border border-white/10 bg-black/40 p-4 text-center sm:mt-16 sm:rounded-3xl sm:p-8">
+        <h2 className="font-headline text-xl font-bold text-on-surface sm:text-2xl md:text-3xl">
+          Get the full experience
         </h2>
-        <ul className="flex flex-wrap gap-2">
-          {zodiacSigns.map((item) => (
-            <li key={item.slug}>
-              <Link
-                href={`/horoscope/${item.slug}`}
-                className="inline-block rounded-full border border-white/10 bg-black px-3 py-1.5 text-sm text-on-surface-variant transition-colors hover:border-primary/50 hover:text-primary"
-              >
-                {item.label}
-              </Link>
-            </li>
-          ))}
-        </ul>
+        <p className="mx-auto mt-2 max-w-xl px-1 text-sm leading-relaxed text-on-surface-variant sm:text-base">
+          Read your sign every day in the {site.name} app — calm UI, gentle reminders,
+          and your forecast saved for later.
+        </p>
+
+        {/* Combined phone screenshots — stack on narrow phones, side-by-side from sm */}
+        <div className="relative mx-auto mt-6 flex max-w-xl flex-col items-center gap-8 sm:mt-8 sm:flex-row sm:items-end sm:justify-center sm:gap-6">
+          <div className="w-[min(72vw,260px)] -rotate-3 transition-transform duration-300 sm:w-[46%] sm:max-w-none sm:-rotate-6 sm:hover:rotate-0">
+            <Image
+              src="/promo/app-splash.png"
+              alt={`${site.name} app splash with zodiac wheel`}
+              width={488}
+              height={1024}
+              className="h-auto w-full drop-shadow-2xl"
+              unoptimized
+              sizes="(max-width: 640px) 72vw, 230px"
+            />
+          </div>
+          <div className="w-[min(72vw,260px)] rotate-3 transition-transform duration-300 sm:w-[46%] sm:max-w-none sm:translate-y-4 sm:rotate-6 sm:hover:translate-y-0 sm:hover:rotate-0">
+            <Image
+              src="/promo/app-reading.png"
+              alt={`${site.name} app horoscope reading screen`}
+              width={488}
+              height={1024}
+              className="h-auto w-full drop-shadow-2xl"
+              unoptimized
+              sizes="(max-width: 640px) 72vw, 230px"
+            />
+          </div>
+        </div>
+
+        <div className="mx-auto mt-6 max-w-md sm:mt-8">
+          <StoreBadgeButtons />
+        </div>
       </section>
     </main>
   );
