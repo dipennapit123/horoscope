@@ -44,7 +44,7 @@ function parseMoodPillar(raw: unknown): SiteMoodBoardPillar | null {
 
 function parseMoodBoard(raw: unknown): SiteHoroscopeMoodBoard | null {
   if (raw == null) return null;
-  let obj: Record<string, unknown> =
+  const obj: Record<string, unknown> =
     typeof raw === "object" && raw !== null ? (raw as Record<string, unknown>) : {};
 
   const inner =

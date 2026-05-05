@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { site } from "@/src/content/site";
 import { toYoutubeEmbedUrl } from "@/src/lib/embed-youtube";
 
@@ -101,12 +102,12 @@ export default function DemoPage() {
             <p className="mb-6 text-sm text-on-surface-variant">
               Join 50k+ seekers grounding their daily journey in cosmic rhythm.
             </p>
-            <a
+            <Link
               href="/#download"
               className="block w-full rounded-xl bg-primary py-3 text-center font-bold text-on-primary-fixed transition-transform hover:scale-[1.02]"
             >
               Start Free Trial
-            </a>
+            </Link>
           </div>
         </div>
       </div>
