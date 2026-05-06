@@ -3,12 +3,15 @@
 import type { SiteHoroscopeDay } from "@/src/types/site-horoscope";
 import { MetricBar } from "./MetricBar";
 import { moodFromConfidence } from "./confidenceMood";
+import type { SectionId } from "./SectionTabs";
 
 type Props = {
   moodBoard: SiteHoroscopeDay["moodBoard"];
   loveConfidence: number;
   wealthConfidence: number;
   healthConfidence: number;
+  /** When set to love/career/health, show only that metric. */
+  activeSection?: SectionId;
 };
 
 function pillarPercent(
@@ -33,6 +36,7 @@ export function ReadingAtGlance({
   loveConfidence,
   wealthConfidence,
   healthConfidence,
+  activeSection,
 }: Props) {
   const rows = [
     {
@@ -49,6 +53,11 @@ export function ReadingAtGlance({
     },
   ];
 
+  const filtered =
+    activeSection && (activeSection === "love" || activeSection === "career" || activeSection === "health")
+      ? rows.filter((r) => r.metric === activeSection)
+      : rows;
+
   return (
     <section className="glass-card rounded-3xl p-4 sm:p-6">
       <div className="mb-3 flex flex-col gap-1 sm:mb-4 sm:flex-row sm:items-center sm:justify-between">
@@ -60,7 +69,7 @@ export function ReadingAtGlance({
         </span>
       </div>
       <div className="divide-y divide-white/5">
-        {rows.map(({ metric, value }) => (
+        {filtered.map(({ metric, value }) => (
           <div key={metric} className="py-1 first:pt-0 last:pb-0">
             <MetricBar metric={metric} value={value} mood={moodFromConfidence(value)} />
           </div>

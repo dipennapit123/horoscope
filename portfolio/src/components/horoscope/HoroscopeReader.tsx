@@ -341,15 +341,19 @@ export function HoroscopeReader({ sign }: Props) {
             </div>
           )}
         </div>
+        <p className="px-1 text-center text-[11px] font-semibold uppercase tracking-[0.18em] text-on-surface-variant sm:hidden">
+          Swipe
+        </p>
         <SectionTabs value={section} onChange={setSection} />
       </section>
 
-      {horoscope ? (
+      {horoscope && (section === "love" || section === "career" || section === "health") ? (
         <ReadingAtGlance
           moodBoard={horoscope.moodBoard ?? null}
           loveConfidence={horoscope.loveConfidence}
           wealthConfidence={horoscope.wealthConfidence}
           healthConfidence={horoscope.healthConfidence}
+          activeSection={section}
         />
       ) : null}
 
