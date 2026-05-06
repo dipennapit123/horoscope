@@ -5,6 +5,31 @@ const NEPAL_TZ = "Asia/Kathmandu";
 export type DayPoint = { date: string; value: number };
 export type MonthPoint = { monthStart: string; value: number };
 export type TrafficRow = { label: string; pageviews: number; uniqueVisitors: number };
+export type RecentPageviewRow = {
+  visitedAt: string;
+  link: string;
+  referrerHost: string;
+  utmSource: string;
+  utmCampaign: string;
+};
+
+type PageviewCursor = { createdAt: string; id: string };
+
+function encodeCursor(c: PageviewCursor): string {
+  return Buffer.from(JSON.stringify(c), "utf8").toString("base64url");
+}
+
+function decodeCursor(s: string): PageviewCursor | null {
+  try {
+    const raw = Buffer.from(s, "base64url").toString("utf8");
+    const parsed = JSON.parse(raw) as Partial<PageviewCursor>;
+    if (!parsed || typeof parsed !== "object") return null;
+    if (typeof parsed.createdAt !== "string" || typeof parsed.id !== "string") return null;
+    return { createdAt: parsed.createdAt, id: parsed.id };
+  } catch {
+    return null;
+  }
+}
 
 export type AnalyticsOverview = {
   timezone: string;
@@ -27,6 +52,7 @@ export type AnalyticsOverview = {
     topSourcesToday: TrafficRow[];
     topSourcesMonth: TrafficRow[];
     topCampaignsMonth: TrafficRow[];
+    recentPageviews: RecentPageviewRow[];
   };
 };
 
@@ -124,6 +150,7 @@ export async function getAnalyticsOverview(params?: { days?: number }) {
   let topSourcesToday: TrafficRow[] = [];
   let topSourcesMonth: TrafficRow[] = [];
   let topCampaignsMonth: TrafficRow[] = [];
+  let recentPageviews: RecentPageviewRow[] = [];
 
   if (portfolioEventsReady) {
     const linkExpr = portfolioHasUrl
@@ -148,6 +175,7 @@ export async function getAnalyticsOverview(params?: { days?: number }) {
       topSourcesTodayRes,
       topSourcesMonthRes,
       topCampaignsMonthRes,
+      recentPageviewsRes,
     ] =
       await Promise.all([
         query<{ n: string }>(
@@ -260,6 +288,25 @@ export async function getAnalyticsOverview(params?: { days?: number }) {
            LIMIT 20`,
           [NEPAL_TZ],
         ),
+        query<{
+          visitedAt: string;
+          link: string;
+          referrerHost: string;
+          utmSource: string;
+          utmCampaign: string;
+        }>(
+          `SELECT
+             to_char(("createdAt" AT TIME ZONE $1), 'YYYY-MM-DD HH24:MI') AS "visitedAt",
+             ${linkExpr} AS link,
+             COALESCE(NULLIF(lower(split_part(replace(replace(referrer, 'https://', ''), 'http://', ''), '/', 1)), ''), '(direct)') AS "referrerHost",
+             ${utmSourceExpr} AS "utmSource",
+             ${utmCampaignExpr} AS "utmCampaign"
+           FROM "PortfolioEvent"
+           WHERE "eventName" = 'pageview'
+           ORDER BY "createdAt" DESC
+           LIMIT 50`,
+          [NEPAL_TZ],
+        ),
       ]);
 
     uniqueToday = parseInt(uniqueTodayRes.rows[0]?.n ?? "0", 10);
@@ -273,6 +320,13 @@ export async function getAnalyticsOverview(params?: { days?: number }) {
     topSourcesToday = toTrafficRows(topSourcesTodayRes.rows);
     topSourcesMonth = toTrafficRows(topSourcesMonthRes.rows);
     topCampaignsMonth = toTrafficRows(topCampaignsMonthRes.rows);
+    recentPageviews = recentPageviewsRes.rows.map((r) => ({
+      visitedAt: r.visitedAt,
+      link: r.link,
+      referrerHost: r.referrerHost,
+      utmSource: r.utmSource,
+      utmCampaign: r.utmCampaign,
+    }));
   }
 
   const overview: AnalyticsOverview = {
@@ -296,9 +350,95 @@ export async function getAnalyticsOverview(params?: { days?: number }) {
       topSourcesToday,
       topSourcesMonth,
       topCampaignsMonth,
+      recentPageviews,
     },
   };
 
   return overview;
+}
+
+export async function getRecentPortfolioPageviews(params?: { limit?: number; cursor?: string }) {
+  const limit = params?.limit && params.limit > 0 ? Math.min(params.limit, 200) : 50;
+  const cursor = params?.cursor ? decodeCursor(params.cursor) : null;
+
+  const existsRes = await query<{ reg: string | null }>(
+    `SELECT to_regclass('public."PortfolioEvent"')::text AS reg`,
+  );
+  const portfolioEventsReady = Boolean(existsRes.rows[0]?.reg);
+
+  if (!portfolioEventsReady) {
+    return { timezone: NEPAL_TZ, portfolioEventsReady: false, rows: [] as RecentPageviewRow[], nextCursor: null as string | null };
+  }
+
+  const colsRes = await query<{ col: string }>(
+    `SELECT column_name::text AS col
+     FROM information_schema.columns
+     WHERE table_schema = 'public'
+       AND table_name = 'PortfolioEvent'`,
+  );
+  const cols = new Set(colsRes.rows.map((r) => r.col));
+  const portfolioHasUrl = cols.has("url");
+  const portfolioHasUtmSource = cols.has("utmSource");
+  const portfolioHasUtmCampaign = cols.has("utmCampaign");
+
+  const linkExpr = portfolioHasUrl
+    ? `COALESCE(NULLIF(url, ''), NULLIF(path, ''), '/')`
+    : `COALESCE(NULLIF(path, ''), '/')`;
+  const utmSourceExpr = portfolioHasUtmSource
+    ? `COALESCE(NULLIF("utmSource", ''), '(none)')`
+    : `'(none)'`;
+  const utmCampaignExpr = portfolioHasUtmCampaign
+    ? `COALESCE(NULLIF("utmCampaign", ''), '(none)')`
+    : `'(none)'`;
+
+  const rowsRes = await query<{
+    id: string;
+    createdAtIso: string;
+    visitedAt: string;
+    link: string;
+    referrerHost: string;
+    utmSource: string;
+    utmCampaign: string;
+  }>(
+    cursor
+      ? `SELECT
+           id::text AS id,
+           "createdAt"::timestamptz::text AS "createdAtIso",
+           to_char(("createdAt" AT TIME ZONE $1), 'YYYY-MM-DD HH24:MI') AS "visitedAt",
+           ${linkExpr} AS link,
+           COALESCE(NULLIF(lower(split_part(replace(replace(referrer, 'https://', ''), 'http://', ''), '/', 1)), ''), '(direct)') AS "referrerHost",
+           ${utmSourceExpr} AS "utmSource",
+           ${utmCampaignExpr} AS "utmCampaign"
+         FROM "PortfolioEvent"
+         WHERE "eventName" = 'pageview'
+           AND ("createdAt" < $2::timestamptz OR ("createdAt" = $2::timestamptz AND id < $3::uuid))
+         ORDER BY "createdAt" DESC, id DESC
+         LIMIT $4::int`
+      : `SELECT
+           id::text AS id,
+           "createdAt"::timestamptz::text AS "createdAtIso",
+           to_char(("createdAt" AT TIME ZONE $1), 'YYYY-MM-DD HH24:MI') AS "visitedAt",
+           ${linkExpr} AS link,
+           COALESCE(NULLIF(lower(split_part(replace(replace(referrer, 'https://', ''), 'http://', ''), '/', 1)), ''), '(direct)') AS "referrerHost",
+           ${utmSourceExpr} AS "utmSource",
+           ${utmCampaignExpr} AS "utmCampaign"
+         FROM "PortfolioEvent"
+         WHERE "eventName" = 'pageview'
+         ORDER BY "createdAt" DESC, id DESC
+         LIMIT $2::int`,
+    cursor ? [NEPAL_TZ, cursor.createdAt, cursor.id, limit] : [NEPAL_TZ, limit],
+  );
+
+  const rows: RecentPageviewRow[] = rowsRes.rows.map((r) => ({
+    visitedAt: r.visitedAt,
+    link: r.link,
+    referrerHost: r.referrerHost,
+    utmSource: r.utmSource,
+    utmCampaign: r.utmCampaign,
+  }));
+
+  const last = rowsRes.rows.at(-1);
+  const nextCursor = last ? encodeCursor({ createdAt: last.createdAtIso, id: last.id }) : null;
+  return { timezone: NEPAL_TZ, portfolioEventsReady: true, rows, nextCursor };
 }
 
