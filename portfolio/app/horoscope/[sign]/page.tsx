@@ -89,17 +89,6 @@ export default async function HoroscopeSignPage({ params }: PageProps) {
 
         {/* Combined phone screenshots — stack on narrow phones, side-by-side from sm */}
         <div className="relative mx-auto mt-6 flex max-w-xl flex-col items-center gap-8 sm:mt-8 sm:flex-row sm:items-end sm:justify-center sm:gap-6">
-          <div className="w-[min(72vw,260px)] -rotate-3 transition-transform duration-300 sm:w-[46%] sm:max-w-none sm:-rotate-6 sm:hover:rotate-0">
-            <Image
-              src="/promo/app-splash.png"
-              alt={`${site.name} app splash with zodiac wheel`}
-              width={488}
-              height={1024}
-              className="h-auto w-full drop-shadow-2xl"
-              unoptimized
-              sizes="(max-width: 640px) 72vw, 230px"
-            />
-          </div>
           <div className="w-[min(72vw,260px)] rotate-3 transition-transform duration-300 sm:w-[46%] sm:max-w-none sm:translate-y-4 sm:rotate-6 sm:hover:translate-y-0 sm:hover:rotate-0">
             <Image
               src="/promo/app-reading.png"
