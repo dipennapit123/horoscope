@@ -78,32 +78,36 @@ export default async function HoroscopeSignPage({ params }: PageProps) {
 
       <HoroscopeReader sign={z} />
 
-      <section className="mt-8 overflow-hidden rounded-2xl border border-white/10 bg-black/40 p-3 text-center sm:mt-16 sm:rounded-3xl sm:p-8">
-        <h2 className="font-headline text-lg font-bold text-on-surface sm:text-2xl md:text-3xl">
-          Get the full experience
-        </h2>
-        <p className="mx-auto mt-1.5 max-w-xl px-1 text-xs leading-relaxed text-on-surface-variant sm:mt-2 sm:text-base">
-          Read your sign every day in the {site.name} app — calm UI, gentle reminders,
-          and your forecast saved for later.
-        </p>
-
-        {/* Combined phone screenshots — stack on narrow phones, side-by-side from sm */}
-        <div className="relative mx-auto mt-4 flex max-w-xl flex-col items-center gap-4 sm:mt-8 sm:flex-row sm:items-end sm:justify-center sm:gap-6">
-          <div className="w-[min(52vw,180px)] rotate-2 transition-transform duration-300 sm:w-[46%] sm:max-w-none sm:translate-y-4 sm:rotate-6 sm:hover:translate-y-0 sm:hover:rotate-0">
-            <Image
-              src="/promo/app-reading.png"
-              alt={`${site.name} app horoscope reading screen`}
-              width={488}
-              height={1024}
-              className="h-auto w-full drop-shadow-2xl"
-              unoptimized
-              sizes="(max-width: 640px) 52vw, 230px"
-            />
+      <section className="mt-8 overflow-hidden rounded-2xl border border-white/10 bg-black/40 p-3 sm:mt-16 sm:rounded-3xl sm:p-8">
+        <div className="mx-auto flex max-w-4xl flex-row items-center gap-4">
+          {/* Left: screenshot */}
+          <div className="w-[140px] shrink-0 sm:w-[220px]">
+            <div className="rotate-2 transition-transform duration-300 sm:translate-y-2 sm:rotate-6 sm:hover:translate-y-0 sm:hover:rotate-0">
+              <Image
+                src="/promo/app-reading.png"
+                alt={`${site.name} app horoscope reading screen`}
+                width={488}
+                height={1024}
+                className="h-auto w-full drop-shadow-2xl"
+                unoptimized
+                sizes="(max-width: 640px) 140px, 220px"
+              />
+            </div>
           </div>
-        </div>
 
-        <div className="mx-auto mt-4 flex max-w-md justify-center sm:mt-8">
-          <StoreBadgeButtons variant="android" className="sm:justify-center" />
+          {/* Right: copy + CTA */}
+          <div className="min-w-0 flex-1 text-left">
+            <h2 className="font-headline text-base font-bold text-on-surface sm:text-2xl md:text-3xl">
+              Get the full experience
+            </h2>
+            <p className="mt-1.5 text-xs leading-relaxed text-on-surface-variant sm:mt-2 sm:text-base">
+              Read your sign every day in the {site.name} app — calm UI, gentle reminders,
+              and your forecast saved for later.
+            </p>
+            <div className="mt-3 sm:mt-5">
+              <StoreBadgeButtons variant="android" className="sm:justify-start" />
+            </div>
+          </div>
         </div>
       </section>
     </main>
