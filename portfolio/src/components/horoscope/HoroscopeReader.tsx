@@ -5,7 +5,6 @@ import { useEffect, useMemo, useState } from "react";
 import { site, type ZodiacEntry, type ZodiacSlug } from "@/src/content/site";
 import { getOrCreateSessionId, getOrCreateVisitorId } from "@/src/lib/analyticsIds";
 import {
-  getMockHoroscope,
   type DayMode,
   type MockHoroscope,
 } from "@/src/content/zodiac-mock";
@@ -95,11 +94,14 @@ export function HoroscopeReader({ sign }: Props) {
   const [liveData, setLiveData] = useState(false);
   /** Fetch to admin failed (wrong port, admin down, etc.). */
   const [upstreamError, setUpstreamError] = useState(false);
+  /** Avoid rendering mock content; show skeleton until fetch resolves. */
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
+        setLoading(true);
         setUpstreamError(false);
         const res = await fetch(`/api/site-horoscope/${encodeURIComponent(sign.slug)}`, {
           cache: "no-store",
@@ -130,6 +132,8 @@ export function HoroscopeReader({ sign }: Props) {
           setBundle(null);
           setWeekly(null);
         }
+      } finally {
+        if (!cancelled) setLoading(false);
       }
     })();
     return () => {
@@ -163,16 +167,15 @@ export function HoroscopeReader({ sign }: Props) {
     }).catch(() => {});
   }, [sign.slug]);
 
-  const horoscope = useMemo((): DisplayHoroscope => {
-    const mock = getMockHoroscope(sign.slug, day);
+  const horoscope = useMemo((): DisplayHoroscope | null => {
     const row = bundle?.[day];
     if (row) return apiRowToDisplay(sign.slug, row);
-    return { ...mock, moodBoard: null };
+    return null;
   }, [sign.slug, day, bundle]);
 
   const formattedDate = useMemo(
-    () => LONG_DATE.format(new Date(horoscope.date)),
-    [horoscope.date],
+    () => (horoscope ? LONG_DATE.format(new Date(horoscope.date)) : ""),
+    [horoscope],
   );
 
   const weeklyHeading = useMemo(() => {
@@ -183,7 +186,7 @@ export function HoroscopeReader({ sign }: Props) {
   }, [weekly]);
 
   const meta = SECTION_META[section];
-  const activeText = meta.getText(horoscope);
+  const activeText = horoscope ? meta.getText(horoscope) : "";
 
   return (
     <div className="space-y-6 sm:space-y-8">
@@ -289,32 +292,51 @@ export function HoroscopeReader({ sign }: Props) {
       {/* Adaptive reading panel + section tabs below (matches mobile HoroscopeCard) */}
       <section className="space-y-3 sm:space-y-4">
         <div className="glass-card rounded-3xl p-4 sm:p-6">
-          <p className="wrap-break-word text-[11px] font-bold uppercase leading-snug tracking-[0.12em] text-primary/90 sm:text-xs sm:tracking-[0.18em]">
-            {formattedDate}
-          </p>
-          <h3
-            className={`mt-2 font-headline text-lg font-bold uppercase tracking-wide sm:text-xl ${meta.accent}`}
-          >
-            {meta.heading}
-          </h3>
-          {section === "sun" && (
-            <p className="mt-1 font-headline text-xl font-bold text-on-surface sm:text-2xl">
-              {horoscope.title}
-            </p>
+          {loading ? (
+            <div className="space-y-3">
+              <div className="h-4 w-44 rounded bg-purple-900/30 animate-pulse" />
+              <div className="h-6 w-40 rounded bg-purple-900/30 animate-pulse" />
+              <div className="h-5 w-64 rounded bg-purple-900/25 animate-pulse" />
+              <div className="h-5 w-full rounded bg-purple-900/20 animate-pulse" />
+              <div className="h-5 w-11/12 rounded bg-purple-900/20 animate-pulse" />
+              <div className="h-5 w-10/12 rounded bg-purple-900/20 animate-pulse" />
+            </div>
+          ) : horoscope ? (
+            <>
+              <p className="wrap-break-word text-[11px] font-bold uppercase leading-snug tracking-[0.12em] text-primary/90 sm:text-xs sm:tracking-[0.18em]">
+                {formattedDate}
+              </p>
+              <h3
+                className={`mt-2 font-headline text-lg font-bold uppercase tracking-wide sm:text-xl ${meta.accent}`}
+              >
+                {meta.heading}
+              </h3>
+              {section === "sun" && (
+                <p className="mt-1 font-headline text-xl font-bold text-on-surface sm:text-2xl">
+                  {horoscope.title}
+                </p>
+              )}
+              <p className="mt-3 text-sm leading-relaxed text-on-surface-variant sm:mt-4 sm:text-base">
+                {activeText}
+              </p>
+            </>
+          ) : (
+            <div className="rounded-xl border border-white/10 bg-black/20 px-4 py-3 text-sm text-on-surface-variant">
+              No published reading is available for this sign right now.
+            </div>
           )}
-          <p className="mt-3 text-sm leading-relaxed text-on-surface-variant sm:mt-4 sm:text-base">
-            {activeText}
-          </p>
         </div>
         <SectionTabs value={section} onChange={setSection} />
       </section>
 
-      <ReadingAtGlance
-        moodBoard={horoscope.moodBoard ?? null}
-        loveConfidence={horoscope.loveConfidence}
-        wealthConfidence={horoscope.wealthConfidence}
-        healthConfidence={horoscope.healthConfidence}
-      />
+      {horoscope ? (
+        <ReadingAtGlance
+          moodBoard={horoscope.moodBoard ?? null}
+          loveConfidence={horoscope.loveConfidence}
+          wealthConfidence={horoscope.wealthConfidence}
+          healthConfidence={horoscope.healthConfidence}
+        />
+      ) : null}
 
       {weekly && (
         <section className="glass-card rounded-3xl p-4 sm:p-6">
