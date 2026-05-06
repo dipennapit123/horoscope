@@ -31,27 +31,34 @@ function GooglePlayLogo({ className }: { className?: string }) {
 const btnBase =
   "group flex min-h-[52px] flex-1 items-center justify-center gap-3 rounded-xl border border-white/15 bg-neutral-900/80 px-4 py-3 text-white shadow-sm transition hover:border-white/25 hover:bg-neutral-800/90 sm:min-w-[200px]";
 
-export function StoreBadgeButtons({ className }: { className?: string }) {
+type Props = {
+  className?: string;
+  variant?: "both" | "android";
+};
+
+export function StoreBadgeButtons({ className, variant = "both" }: Props) {
   return (
     <div
       className={`flex w-full flex-col gap-3 sm:flex-row sm:flex-wrap ${className ?? ""}`}
     >
-      <a
-        href={site.storeLinks.ios}
-        target="_blank"
-        rel="noopener noreferrer"
-        className={btnBase}
-      >
-        <AppleLogo className="h-8 w-8 shrink-0 text-white" />
-        <span className="text-left leading-tight">
-          <span className="block text-[11px] font-medium text-neutral-400">
-            Download on the
+      {variant === "both" && (
+        <a
+          href={site.storeLinks.ios}
+          target="_blank"
+          rel="noopener noreferrer"
+          className={btnBase}
+        >
+          <AppleLogo className="h-8 w-8 shrink-0 text-white" />
+          <span className="text-left leading-tight">
+            <span className="block text-[11px] font-medium text-neutral-400">
+              Download on the
+            </span>
+            <span className="block font-headline text-[15px] font-bold tracking-tight">
+              App Store
+            </span>
           </span>
-          <span className="block font-headline text-[15px] font-bold tracking-tight">
-            App Store
-          </span>
-        </span>
-      </a>
+        </a>
+      )}
       <a
         href={site.storeLinks.android}
         target="_blank"

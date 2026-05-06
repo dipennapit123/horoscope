@@ -226,16 +226,31 @@ export function HoroscopeReader({ sign }: Props) {
       )}
 
       {/* Sign header */}
-      <section className="glass-card flex flex-col items-center gap-4 rounded-3xl p-4 sm:flex-row sm:items-center sm:gap-6 sm:p-6">
-        <ZodiacAvatar sign={sign} size="lg" />
-        <div className="w-full flex-1 text-center sm:text-left">
-          <h1 className="font-headline text-3xl font-extrabold tracking-tight text-on-surface sm:text-4xl md:text-5xl">
+      <section className="glass-card flex flex-col items-center gap-2 rounded-3xl p-2.5 sm:flex-row sm:items-center sm:gap-6 sm:p-6">
+        <div className="sm:hidden w-full">
+          <div className="flex items-center gap-3">
+            <ZodiacAvatar sign={sign} size="sm" />
+            <div className="min-w-0 flex-1 text-left">
+              <h1 className="truncate font-headline text-xl font-extrabold tracking-tight text-on-surface">
+                {sign.label}
+              </h1>
+              <p className="mt-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-on-surface-variant">
+                {sign.dateRange}
+              </p>
+            </div>
+          </div>
+        </div>
+        <div className="hidden sm:block">
+          <ZodiacAvatar sign={sign} size="lg" />
+        </div>
+        <div className="hidden w-full flex-1 sm:block sm:text-left">
+          <h1 className="font-headline text-2xl font-extrabold tracking-tight text-on-surface sm:text-4xl md:text-5xl">
             {sign.label}
           </h1>
           <p className="mt-1 text-xs font-semibold uppercase tracking-[0.16em] text-on-surface-variant sm:text-sm sm:tracking-[0.18em]">
             {sign.dateRange}
           </p>
-          <div className="mt-4 flex flex-col items-center gap-3 sm:flex-row sm:justify-start">
+          <div className="mt-3 hidden flex-col items-center gap-3 sm:mt-4 sm:flex sm:flex-row sm:justify-start">
             <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-xl ring-2 ring-primary/30 shadow-md shadow-primary/20 sm:h-11 sm:w-11">
               <Image
                 src="/icon.png"
