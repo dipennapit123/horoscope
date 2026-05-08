@@ -1,0 +1,31 @@
+---
+description: Ao Horoscope monorepo — git subtrees, deploy boundaries, and AI workflow
+alwaysApply: true
+---
+
+# Ao Horoscope (`ao-horoscope`)
+
+## Repo shape
+
+- **`admin-dashboard2/`**: Next.js admin + API + Postgres (Supabase). Production: `https://astradailyadmin.org`.
+- **`portfolio/`**: Next.js public site. Production: `https://astradaily.app`. Uses `POST /api/track` which proxies to admin’s public analytics endpoint.
+- **`mobile/`**: Expo / React Native app.
+
+Read **`AGENTS.md`** at repo root first; **`PROJECT_OVERVIEW.md`** has the full handoff (migrations, analytics, subtree recovery).
+
+## Git rules (critical)
+
+- **Ask the user before `git commit`.**
+- **Ask the user before any `git push`**, including **`git subtree push`**.
+- This is a **monorepo**, but **deploy repos are separate**. Do **not** push the whole monorepo to `admindashboard` / `AstraDailyPortfolio` / mobile repo.
+- Use **`git subtree push --prefix=<folder> <remote> main`** (see `AGENTS.md` for remote names).
+- If subtree push is **rejected (non-fast-forward)**, use the **fetch + subtree split + merge with `--allow-unrelated-histories` + push** flow from **`PROJECT_OVERVIEW.md`** — do not rewrite remote history without explicit user approval.
+
+## Product facts
+
+- Analytics storage: **`PortfolioEvent`** in Supabase; buckets use **`Asia/Kathmandu`**.
+- Portfolio production needs **`ASTRADAILY_API_BASE_URL=https://astradailyadmin.org`** (or your admin URL) for tracking proxy.
+
+## Dev sharp edges
+
+- If Next.js infers the **wrong workspace root** (multiple `package-lock.json` upstream), **`turbopack.root`** should be pinned in that app’s `next.config` so `app/` resolves correctly.
