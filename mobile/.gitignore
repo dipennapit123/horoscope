@@ -2,7 +2,7 @@ node_modules/
 .expo/
 .env
 .env.local
-.env.example
+!.env.example
 
 # Internal-only docs (keep locally; not for public GitHub)
 EAS-BUILD-ENV.md
